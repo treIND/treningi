@@ -123,10 +123,8 @@
     const zawodnikSelect = document.getElementById("zawodnik");
     const dataInput = document.getElementById("data");
     const wiadomosciDiv = document.getElementById("wiadomosci");
-    let treningi = [];
-    let zawodnicy = [];
-    localStorage.setItem("treningi", JSON.stringify(treningi));
-    localStorage.setItem("zawodnicy", JSON.stringify(zawodnicy));
+    let treningi = JSON.parse(localStorage.getItem("treningi")) || [];
+    let zawodnicy = JSON.parse(localStorage.getItem("zawodnicy")) || [];
 
     const dzisiaj = new Date().toISOString().split('T')[0];
     dataInput.value = dzisiaj;
@@ -232,13 +230,10 @@
       wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
       zawodnicy.forEach(z => {
         let suma = 0;
-        let tresc = `Hej, przesyłam rozliczenie za ten miesiąc.
-${z.name}:
-`;
+        let tresc = `Hej, przesyłam rozliczenie za ten miesiąc.\n${z.name}:\n`;
         const jegoTreningi = treningi.filter(t => t.zawodnik === z.name);
         jegoTreningi.forEach(t => {
-          tresc += `- ${t.data}: ${t.stawka} zł
-`;
+          tresc += `- ${t.data}: ${t.stawka} zł\n`;
           suma += parseFloat(t.stawka);
         });
         if (jegoTreningi.length > 0) {
@@ -272,11 +267,11 @@ ${z.name}:
       });
     }
 
-    zapisz();
-    zapiszZawodnicy();
+    // Inicjalizacja
     aktualizujZawodnikow();
     aktualizujTabele();
     generujWiadomosci();
   </script>
 </body>
 </html>
+
