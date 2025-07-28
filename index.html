@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rozliczenie Treningów</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #000;
+      color: #fff;
+    }
+    label, select, input, button, textarea {
+      margin: 0.5rem 0;
+      display: block;
+      color: #fff;
+    }
+    input, select, textarea {
+      background-color: #111;
+      border: 1px solid #555;
+      color: #fff;
+      padding: 0.3rem;
+    }
+    button {
+      background-color: #55B4FF;
+      color: #000;
+      border: none;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-right: 0.5rem;
+    }
+    .summary {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background: #111;
+      padding: 1rem;
+      border: 1px solid #333;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      margin-top: 1rem;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #555;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    h1 {
+      color: #55B4FF;
+    }
+    .wiadomosci-do-wyslania {
+      margin-top: 2rem;
+    }
+    .wiadomosc-blok {
+      background: #111;
+      border: 1px solid #333;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 10px;
+    }
+    .wiadomosc-blok h4 {
+      margin: 0 0 0.5rem 0;
+      color: #55B4FF;
+    }
+    .form-inline {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>#trening<span style="color:#fff">IND</span></h1>
+
+  <div class="form-inline">
+    <input type="text" id="nowyZawodnik" placeholder="Imię i nazwisko" />
+    <input type="text" id="nowyTelefon" placeholder="Numer telefonu (np. 48123123123)" />
+    <button onclick="dodajNowegoZawodnika()">Dodaj zawodnika</button>
+    <button onclick="zapiszBackup()">📥 Zapisz kopię</button>
+  </div>
+
+  <label for="zawodnik">Zawodnik:</label>
+  <select id="zawodnik"></select>
+
+  <label for="data">Data treningu:</label>
+  <input type="date" id="data" />
+
+  <label for="stawka">Stawka:</label>
+  <select id="stawka">
+    <option value="60">60</option>
+    <option value="80">80</option>
+    <option value="110">110</option>
+    <option value="50">50</option>
+  </select>
+
+  <button onclick="dodajTrening()">Dodaj trening</button>
+
+  <table id="tabela">
+    <thead>
+      <tr><th>Zawodnik</th><th>Data</th><th>Stawka</th><th>Akcja</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="summary">
+    <strong>Podsumowanie</strong>
+    <p>Całość: <span id="suma"></span> zł</p>
+    <p>70%: <span id="suma70"></span> zł</p>
+    <p>30%: <span id="suma30"></span> zł</p>
+  </div>
+
+  <div class="wiadomosci-do-wyslania" id="wiadomosci"></div>
+
+  <script>
+    const tabela = document.querySelector("#tabela tbody");
+    const zawodnikSelect = document.getElementById("zawodnik");
+    const dataInput = document.getElementById("data");
+    const wiadomosciDiv = document.getElementById("wiadomosci");
+    let treningi = [];
+    let zawodnicy = [];
+    localStorage.setItem("treningi", JSON.stringify(treningi));
+    localStorage.setItem("zawodnicy", JSON.stringify(zawodnicy));
+
+    const dzisiaj = new Date().toISOString().split('T')[0];
+    dataInput.value = dzisiaj;
+
+    function zapisz() {
+      localStorage.setItem("treningi", JSON.stringify(treningi));
+    }
+
+    function zapiszZawodnicy() {
+      localStorage.setItem("zawodnicy", JSON.stringify(zawodnicy));
+    }
+
+    function zapiszBackup() {
+      const backupData = {
+        treningi,
+        zawodnicy,
+        zapisano: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const dzis = new Date().toISOString().split("T")[0];
+      link.download = `backup_treningi_${dzis}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function aktualizujZawodnikow() {
+      zawodnikSelect.innerHTML = "";
+      zawodnicy.forEach(z => {
+        const option = document.createElement("option");
+        option.value = z.name;
+        option.textContent = z.name;
+        option.setAttribute("data-phone", z.phone);
+        zawodnikSelect.appendChild(option);
+      });
+    }
+
+    function dodajNowegoZawodnika() {
+      const name = document.getElementById("nowyZawodnik").value.trim();
+      const phone = document.getElementById("nowyTelefon").value.trim();
+      if (!name || !phone) return alert("Uzupełnij dane zawodnika.");
+      zawodnicy.push({ name, phone });
+      zapiszZawodnicy();
+      aktualizujZawodnikow();
+      generujWiadomosci();
+      document.getElementById("nowyZawodnik").value = "";
+      document.getElementById("nowyTelefon").value = "";
+    }
+
+    function usunZawodnika(nazwa) {
+      zawodnicy = zawodnicy.filter(z => z.name !== nazwa);
+      treningi = treningi.filter(t => t.zawodnik !== nazwa);
+      zapisz();
+      zapiszZawodnicy();
+      aktualizujZawodnikow();
+      aktualizujTabele();
+      generujWiadomosci();
+    }
+
+    function aktualizujTabele() {
+      tabela.innerHTML = "";
+      let suma = 0;
+      treningi.forEach((t, i) => {
+        suma += parseFloat(t.stawka);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${t.zawodnik}</td><td>${t.data}</td><td>${t.stawka}</td>`;
+        const td = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.textContent = "Usuń";
+        btn.onclick = () => usunTrening(i);
+        td.appendChild(btn);
+        tr.appendChild(td);
+        tabela.appendChild(tr);
+      });
+      document.getElementById("suma").innerText = suma;
+      document.getElementById("suma70").innerText = (suma * 0.7).toFixed(2);
+      document.getElementById("suma30").innerText = (suma * 0.3).toFixed(2);
+    }
+
+    function dodajTrening() {
+      const zawodnik = zawodnikSelect.value;
+      const data = dataInput.value;
+      const stawka = document.getElementById("stawka").value;
+      if (!data) return alert("Wybierz datę treningu!");
+      treningi.push({ zawodnik, data, stawka });
+      zapisz();
+      aktualizujTabele();
+      generujWiadomosci();
+    }
+
+    function usunTrening(i) {
+      treningi.splice(i, 1);
+      zapisz();
+      aktualizujTabele();
+      generujWiadomosci();
+    }
+
+    function generujWiadomosci() {
+      wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
+      zawodnicy.forEach(z => {
+        let suma = 0;
+        let tresc = `Hej, przesyłam rozliczenie za ten miesiąc.
+${z.name}:
+`;
+        const jegoTreningi = treningi.filter(t => t.zawodnik === z.name);
+        jegoTreningi.forEach(t => {
+          tresc += `- ${t.data}: ${t.stawka} zł
+`;
+          suma += parseFloat(t.stawka);
+        });
+        if (jegoTreningi.length > 0) {
+          tresc += `Suma: ${suma} zł`;
+        } else {
+          tresc = "Brak treningów w tym miesiącu.";
+        }
+
+        const blok = document.createElement("div");
+        blok.className = "wiadomosc-blok";
+
+        const naglowek = document.createElement("h4");
+        naglowek.textContent = z.name;
+
+        const tekst = document.createElement("pre");
+        tekst.textContent = tresc;
+
+        const whatsappBtn = document.createElement("button");
+        whatsappBtn.textContent = "Wyślij przez WhatsApp";
+        whatsappBtn.onclick = () => window.open(`https://wa.me/${z.phone}?text=${encodeURIComponent(tresc)}`, '_blank');
+
+        const usunBtn = document.createElement("button");
+        usunBtn.textContent = "Usuń zawodnika";
+        usunBtn.onclick = () => usunZawodnika(z.name);
+
+        blok.appendChild(naglowek);
+        blok.appendChild(tekst);
+        if (jegoTreningi.length > 0) blok.appendChild(whatsappBtn);
+        blok.appendChild(usunBtn);
+        wiadomosciDiv.appendChild(blok);
+      });
+    }
+
+    zapisz();
+    zapiszZawodnicy();
+    aktualizujZawodnikow();
+    aktualizujTabele();
+    generujWiadomosci();
+  </script>
+</body>
+</html>
