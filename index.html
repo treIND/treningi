@@ -199,5 +199,50 @@
       wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
       zawodnicy.forEach(z => {
         let suma = 0;
-        let tresc = `Hej, przesyłam rozliczenie za ten miesiąc.\n${z.name}:\n`;
-        const jegoTreningi = treningi.filter(t => t.zawodnik === z.name)
+        let tresc = `Hej, przesyłam rozliczenie za ten miesiąc.
+${z.name}:
+`;
+        const jegoTreningi = treningi.filter(t => t.zawodnik === z.name);
+        jegoTreningi.forEach(t => {
+          tresc += `- ${t.data}: ${t.stawka} zł
+`;
+          suma += parseFloat(t.stawka);
+        });
+        if (jegoTreningi.length > 0) {
+          tresc += `Suma: ${suma} zł`;
+        } else {
+          tresc = "Brak treningów w tym miesiącu.";
+        }
+
+        const blok = document.createElement("div");
+        blok.className = "wiadomosc-blok";
+
+        const naglowek = document.createElement("h4");
+        naglowek.textContent = z.name;
+
+        const tekst = document.createElement("pre");
+        tekst.textContent = tresc;
+
+        const whatsappBtn = document.createElement("button");
+        whatsappBtn.textContent = "Wyślij przez WhatsApp";
+        whatsappBtn.onclick = () => window.open(`https://wa.me/${z.phone}?text=${encodeURIComponent(tresc)}`, '_blank');
+
+        const usunBtn = document.createElement("button");
+        usunBtn.textContent = "Usuń zawodnika";
+        usunBtn.onclick = () => usunZawodnika(z.name);
+
+        blok.appendChild(naglowek);
+        blok.appendChild(tekst);
+        if (jegoTreningi.length > 0) blok.appendChild(whatsappBtn);
+        blok.appendChild(usunBtn);
+        wiadomosciDiv.appendChild(blok);
+      });
+    }
+
+    window.onload = function() {
+      document.getElementById("data").value = new Date().toISOString().split("T")[0];
+      odswiez();
+    };
+  </script>
+</body>
+</html>
