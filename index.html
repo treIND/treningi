@@ -129,3 +129,117 @@
     const dataInput = document.getElementById("data");
     const wiadomosciDiv = document.getElementById("wiadomosci");
 
+    async function dodajNowegoZawodnika() {
+      const name = document.getElementById("nowyZawodnik").value.trim();
+      const phone = document.getElementById("nowyTelefon").value.trim();
+      if (!name || !phone) return alert("Uzupełnij dane zawodnika.");
+      try {
+        const { error } = await supabase.from("zawodnicy").insert([{ name, phone }]);
+        if (error) throw error;
+        document.getElementById("nowyZawodnik").value = "";
+        document.getElementById("nowyTelefon").value = "";
+        odswiez();
+      } catch (err) {
+        alert("Błąd przy dodawaniu zawodnika: " + err.message);
+      }
+    }
+
+    async function dodajTrening() {
+      const zawodnik = zawodnikSelect.value;
+      const data = dataInput.value;
+      const stawka = document.getElementById("stawka").value;
+      if (!data) return alert("Wybierz datę treningu!");
+      await supabase.from("treningi").insert([{ zawodnik, data, stawka }]);
+      odswiez();
+    }
+
+    async function usunTrening(id) {
+      await supabase.from("treningi").delete().eq("id", id);
+      odswiez();
+    }
+
+    async function usunZawodnika(nazwa) {
+      await supabase.from("zawodnicy").delete().eq("name", nazwa);
+      await supabase.from("treningi").delete().eq("zawodnik", nazwa);
+      odswiez();
+    }
+
+    async function odswiez() {
+      const { data: zawodnicy } = await supabase.from("zawodnicy").select("*");
+      const { data: treningi } = await supabase.from("treningi").select("*");
+
+      zawodnikSelect.innerHTML = "";
+      zawodnicy.forEach(z => {
+        const option = document.createElement("option");
+        option.value = z.name;
+        option.textContent = z.name;
+        option.setAttribute("data-phone", z.phone);
+        zawodnikSelect.appendChild(option);
+      });
+
+      tabela.innerHTML = "";
+      let suma = 0;
+      treningi.forEach((t) => {
+        suma += parseFloat(t.stawka);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${t.zawodnik}</td><td>${t.data}</td><td>${t.stawka}</td>`;
+        const td = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.textContent = "Usuń";
+        btn.onclick = () => usunTrening(t.id);
+        td.appendChild(btn);
+        tr.appendChild(td);
+        tabela.appendChild(tr);
+      });
+
+      document.getElementById("suma").innerText = suma;
+      document.getElementById("suma70").innerText = (suma * 0.7).toFixed(2);
+      document.getElementById("suma30").innerText = (suma * 0.3).toFixed(2);
+
+      wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
+      zawodnicy.forEach(z => {
+        let suma = 0;
+        let tresc = `Hej, przesyłam rozliczenie za ten miesiąc.\n${z.name}:\n`;
+        const jegoTreningi = treningi.filter(t => t.zawodnik === z.name);
+        jegoTreningi.forEach(t => {
+          tresc += `- ${t.data}: ${t.stawka} zł\n`;
+          suma += parseFloat(t.stawka);
+        });
+        if (jegoTreningi.length > 0) {
+          tresc += `Suma: ${suma} zł`;
+        } else {
+          tresc = "Brak treningów w tym miesiącu.";
+        }
+
+        const blok = document.createElement("div");
+        blok.className = "wiadomosc-blok";
+
+        const naglowek = document.createElement("h4");
+        naglowek.textContent = z.name;
+
+        const tekst = document.createElement("pre");
+        tekst.textContent = tresc;
+
+        const whatsappBtn = document.createElement("button");
+        whatsappBtn.textContent = "Wyślij przez WhatsApp";
+        whatsappBtn.onclick = () => window.open(`https://wa.me/${z.phone}?text=${encodeURIComponent(tresc)}`, '_blank');
+
+        const usunBtn = document.createElement("button");
+        usunBtn.textContent = "Usuń zawodnika";
+        usunBtn.onclick = () => usunZawodnika(z.name);
+
+        blok.appendChild(naglowek);
+        blok.appendChild(tekst);
+        if (jegoTreningi.length > 0) blok.appendChild(whatsappBtn);
+        blok.appendChild(usunBtn);
+        wiadomosciDiv.appendChild(blok);
+      });
+    }
+
+    window.onload = function() {
+      document.getElementById("data").value = new Date().toISOString().split("T")[0];
+      odswiez();
+    };
+  </script>
+</body>
+</html>
