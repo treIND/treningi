@@ -5,10 +5,74 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rozliczenie Treningów</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+async function zapiszTreningDoArkusza(trening) {
+  const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: [{
+      zawodnik: trening.zawodnik,
+      data: trening.data,
+      stawka: trening.stawka
+    }]})
+  });
+  if (response.ok) {
+    alert(`Zapisano trening: ${trening.zawodnik} - ${trening.data}`);
+  } else {
+    alert("Błąd przy zapisie do arkusza!");
+  }
+}
+
+
+function toggleSummary() {
+  const summary = document.querySelector('.summary');
+  if (summary.style.display === 'none' || summary.style.display === '') {
+    summary.style.display = 'block';
+  } else {
+    summary.style.display = 'none';
+  }
+}
+
+
+function ustawStawke(wartosc) {
+  document.getElementById("stawka").value = wartosc;
+  const buttons = document.querySelectorAll("#stawki button");
+  buttons.forEach(btn => btn.classList.remove("highlight"));
+  const clicked = Array.from(buttons).find(b => b.textContent.includes(wartosc + " zł"));
+  if (clicked) {
+    clicked.classList.add("highlight");
+    setTimeout(() => clicked.classList.remove("highlight"), 1000);
+  }
+}
+
+
+async function zapiszDzisiejszeTreningi() {
+  const today = new Date().toISOString().split("T")[0];
+  const { data: treningi } = await supabase.from("treningi").select("*");
+  const dzisiaj = treningi.filter(t => t.data === today);
+
+  if (dzisiaj.length === 0) {
+    alert("Brak treningów do zapisania.");
+    return;
+  }
+
+  const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: dzisiaj })
+  });
+
+  if (response.ok) {
+    alert(`Zapisano ${dzisiaj.length} treningów z dnia ${today}`);
+  } else {
+    alert("Błąd przy zapisie do arkusza!");
+  }
+}
+
+</script>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: 'League Spartan', sans-serif;
       padding: 2rem;
       background: #000;
       color: #fff;
@@ -34,6 +98,7 @@
       margin-right: 0.5rem;
     }
     .summary {
+      display: none;
       position: fixed;
       top: 1rem;
       right: 1rem;
@@ -76,10 +141,123 @@
       flex-wrap: wrap;
       margin-bottom: 1rem;
     }
+  
+.tom-select {
+  max-width: 400px;
+  background-color: #111;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+}
+.ts-control {
+  background-color: #111;
+  color: #fff;
+}
+.ts-dropdown {
+  background-color: #111;
+  color: #fff;
+  border: 1px solid #333;
+}
+.ts-dropdown .option {
+  background-color: #111;
+  color: #fff;
+}
+.ts-dropdown .option:hover {
+  background-color: #222;
+}
+
+  
+body, input, select, button, textarea, table, th, td, label, h1, h2, h3, h4, h5, h6 {
+  font-family: 'League Spartan', sans-serif !important;
+}
+
+  
+.tom-select,
+.ts-control,
+.ts-dropdown,
+.ts-dropdown .option {
+  background-color: #111 !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+.ts-dropdown .option:hover {
+  background-color: #222 !important;
+}
+
+  
+#stawki {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+#stawki button {
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  background-color: #222;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#stawki button:hover {
+  background-color: #333;
+}
+
+  
+#stawki button.highlight {
+  background-color: #2ecc71 !important;
+  color: black !important;
+}
+
   </style>
+
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js">
+function ustawStawke(wartosc) {
+  document.getElementById("stawka").value = wartosc;
+  const buttons = document.querySelectorAll("#stawki button");
+  buttons.forEach(btn => btn.classList.remove("highlight"));
+  const clicked = Array.from(buttons).find(b => b.textContent.includes(wartosc + " zł"));
+  if (clicked) {
+    clicked.classList.add("highlight");
+    setTimeout(() => clicked.classList.remove("highlight"), 1000);
+  }
+}
+
+
+async function zapiszDzisiejszeTreningi() {
+  const today = new Date().toISOString().split("T")[0];
+  const { data: treningi } = await supabase.from("treningi").select("*");
+  const dzisiaj = treningi.filter(t => t.data === today);
+
+  if (dzisiaj.length === 0) {
+    alert("Brak treningów do zapisania.");
+    return;
+  }
+
+  const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: dzisiaj })
+  });
+
+  if (response.ok) {
+    alert(`Zapisano ${dzisiaj.length} treningów z dnia ${today}`);
+  } else {
+    alert("Błąd przy zapisie do arkusza!");
+  }
+}
+
+</script>
+
+  <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <h1>#trening<span style="color:#fff">IND</span></h1>
+
+  <button onclick="toggleSummary()">Pokaż podsumowanie</button>
 
   <div class="form-inline">
     <input type="text" id="nowyZawodnik" placeholder="Imię i nazwisko" />
@@ -88,23 +266,36 @@
   </div>
 
   <label for="zawodnik">Zawodnik:</label>
-  <select id="zawodnik"></select>
+  <select id="zawodnik" style="max-width: 400px;">
 
   <label for="data">Data treningu:</label>
   <input type="date" id="data" />
 
-  <label for="stawka">Stawka:</label>
-  <select id="stawka">
-    <option value="60">60</option>
-    <option value="80">80</option>
-    <option value="110">110</option>
-    <option value="50">50</option>
-    <option value="70">70</option>
-  </select>
+  <label>Stawka:</label>
+  <div id="stawki">
+    <button type="button" onclick="ustawStawke(60)">60 zł</button>
+    <button type="button" onclick="ustawStawke(80)">80 zł</button>
+    <button type="button" onclick="ustawStawke(110)">110 zł</button>
+    <button type="button" onclick="ustawStawke(50)">50 zł</button>
+  </div>
+  <input type="hidden" id="stawka" value="60">
+    
+    
+    
+    
+  
 
   <button onclick="dodajTrening()">Dodaj trening</button>
 
-  <table id="tabela">
+  <button onclick="zapiszDzisiejszeTreningi()">Zapisz dzisiejsze treningi</button>
+
+<div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+  <button onclick="zapiszDzisiejszeTreningi()" style="background-color: #444; color: #fff; border: 1px solid #666;">
+    Zapisz dzisiejsze treningi
+  </button>
+</div>
+
+<table id="tabela">
     <thead>
       <tr><th>Zawodnik</th><th>Data</th><th>Stawka</th><th>Akcja</th></tr>
     </thead>
@@ -121,6 +312,7 @@
   <div class="wiadomosci-do-wyslania" id="wiadomosci"></div>
 
   <script>
+let lastAddedId = null;
     const SUPABASE_URL = "https://vwthvwqcqlsnikvqdeia.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dGh2d3FjcWxzbmlrdnFkZWlhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzczMDI2NCwiZXhwIjoyMDY5MzA2MjY0fQ.IRZwe-xSdLbOGPLTupsGubivGV6_-jRgw3C-9zPfpKA";
     const _supabase = window.supabase;
@@ -151,16 +343,21 @@
       const data = dataInput.value;
       const stawka = document.getElementById("stawka").value;
       if (!data) return alert("Wybierz datę treningu!");
-      await supabase.from("treningi").insert([{ zawodnik, data, stawka }]);
+      const { data: inserted } = await supabase.from("treningi").insert([{ zawodnik, data, stawka }]).select();
+      lastAddedId = inserted[0].id;
       odswiez();
     }
 
     async function usunTrening(id) {
+      const potwierdzenie = confirm("Czy na pewno chcesz usunąć ten trening?");
+      if (!potwierdzenie) return;
       await supabase.from("treningi").delete().eq("id", id);
       odswiez();
     }
 
     async function usunZawodnika(nazwa) {
+      const potwierdzenie = confirm("Czy na pewno chcesz usunąć zawodnika wraz z jego treningami?");
+      if (!potwierdzenie) return;
       await supabase.from("zawodnicy").delete().eq("name", nazwa);
       await supabase.from("treningi").delete().eq("zawodnik", nazwa);
       odswiez();
@@ -171,6 +368,11 @@
       const { data: treningi } = await supabase.from("treningi").select("*");
 
       zawodnikSelect.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      placeholder.textContent = "Dodaj zawodnika";
+      zawodnikSelect.appendChild(placeholder);
       zawodnicy.forEach(z => {
         const option = document.createElement("option");
         option.value = z.name;
@@ -181,15 +383,35 @@
 
       tabela.innerHTML = "";
       let suma = 0;
-      treningi.forEach((t) => {
+      treningi.sort((a, b) => new Date(b.data) - new Date(a.data)).forEach((t) => {
         suma += parseFloat(t.stawka);
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${t.zawodnik}</td><td>${t.data}</td><td>${t.stawka}</td>`;
+        const today = new Date().toISOString().split("T")[0];
+tr.innerHTML = `<td>${t.zawodnik}</td><td>${t.data}</td><td>${t.stawka}</td>`;
+if (t.id === lastAddedId) {
+  tr.style.backgroundColor = '#013220'; // ciemna zieleń
+  setTimeout(() => {
+    if (t.data === today) {
+      tr.style.backgroundColor = '#001f3f'; // granat
+    } else {
+      tr.style.backgroundColor = ''; // brak koloru
+    }
+  }, 10000);
+} else if (t.data === today) {
+  tr.style.backgroundColor = '#001f3f'; // granat dla dzisiejszych
+}
+        
         const td = document.createElement("td");
-        const btn = document.createElement("button");
-        btn.textContent = "Usuń";
-        btn.onclick = () => usunTrening(t.id);
-        td.appendChild(btn);
+        const btnUsun = document.createElement("button");
+        btnUsun.textContent = "Usuń";
+        btnUsun.onclick = () => usunTrening(t.id);
+
+        const btnZapisz = document.createElement("button");
+        btnZapisz.textContent = "Zapisz w tabeli";
+        btnZapisz.onclick = () => zapiszTreningDoArkusza(t);
+
+        td.appendChild(btnUsun);
+        td.appendChild(btnZapisz);
         tr.appendChild(td);
         tabela.appendChild(tr);
       });
@@ -199,6 +421,16 @@
       document.getElementById("suma30").innerText = (suma * 0.3).toFixed(2);
 
       wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
+      if (window.tsZawodnik) window.tsZawodnik.destroy();
+      window.tsZawodnik = new TomSelect("#zawodnik", {
+        create: false,
+        sortField: {
+          field: "text",
+          direction: "asc"
+        },
+        placeholder: "Wpisz imię lub nazwisko"
+      });
+
       zawodnicy.forEach(z => {
         let suma = 0;
         let tresc = `Hej, przesyłam rozliczenie za ten miesiąc.
@@ -236,15 +468,115 @@ ${z.name}:
         blok.appendChild(naglowek);
         blok.appendChild(tekst);
         if (jegoTreningi.length > 0) blok.appendChild(whatsappBtn);
-        blok.appendChild(usunBtn);
+        
+        if (z.oplacono === true) {
+          blok.style.backgroundColor = "#013220";
+        }
+
+        const zaplaconoBtn = document.createElement("button");
+
+        const ustawStyl = (status) => {
+          if (status) {
+            blok.style.backgroundColor = "#013220";
+            zaplaconoBtn.textContent = "Cofnij opłacenie";
+          } else {
+            blok.style.backgroundColor = "";
+            zaplaconoBtn.textContent = "Zapłacono";
+          }
+        };
+
+        ustawStyl(z.oplacono === true);
+
+        zaplaconoBtn.onclick = async () => {
+          try {
+            const nowyStatus = !(z.oplacono === true);
+            const { error } = await supabase
+              .from("zawodnicy")
+              .update({ oplacono: nowyStatus })
+              .eq("name", z.name);
+            if (error) throw error;
+            z.oplacono = nowyStatus;
+            ustawStyl(nowyStatus);
+          } catch (err) {
+            alert("Błąd przy zmianie statusu opłacenia: " + err.message);
+          }
+        };
+
+        blok.appendChild(zaplaconoBtn);
+
+blok.appendChild(usunBtn);
         wiadomosciDiv.appendChild(blok);
       });
     }
 
     window.onload = function() {
-      document.getElementById("data").value = "2025-07-29";
+      document.getElementById("data").value = new Date().toISOString().split("T")[0];
       odswiez();
     };
-  </script>
+  
+async function zapiszTreningDoArkusza(trening) {
+  const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: [{
+      zawodnik: trening.zawodnik,
+      data: trening.data,
+      stawka: trening.stawka
+    }]})
+  });
+  if (response.ok) {
+    alert(`Zapisano trening: ${trening.zawodnik} - ${trening.data}`);
+  } else {
+    alert("Błąd przy zapisie do arkusza!");
+  }
+}
+
+
+function toggleSummary() {
+  const summary = document.querySelector('.summary');
+  if (summary.style.display === 'none' || summary.style.display === '') {
+    summary.style.display = 'block';
+  } else {
+    summary.style.display = 'none';
+  }
+}
+
+
+function ustawStawke(wartosc) {
+  document.getElementById("stawka").value = wartosc;
+  const buttons = document.querySelectorAll("#stawki button");
+  buttons.forEach(btn => btn.classList.remove("highlight"));
+  const clicked = Array.from(buttons).find(b => b.textContent.includes(wartosc + " zł"));
+  if (clicked) {
+    clicked.classList.add("highlight");
+    setTimeout(() => clicked.classList.remove("highlight"), 1000);
+  }
+}
+
+
+async function zapiszDzisiejszeTreningi() {
+  const today = new Date().toISOString().split("T")[0];
+  const { data: treningi } = await supabase.from("treningi").select("*");
+  const dzisiaj = treningi.filter(t => t.data === today);
+
+  if (dzisiaj.length === 0) {
+    alert("Brak treningów do zapisania.");
+    return;
+  }
+
+  const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: dzisiaj })
+  });
+
+  if (response.ok) {
+    alert(`Zapisano ${dzisiaj.length} treningów z dnia ${today}`);
+  } else {
+    alert("Błąd przy zapisie do arkusza!");
+  }
+}
+
+</script>
 </body>
 </html>
