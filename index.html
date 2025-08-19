@@ -36,6 +36,7 @@
 </head>
 <body>
 <h1>#trening<span style="color:#fff">IND</span></h1>
+<h2>Dzisiejszy zarobek: <span id="dzisiaj-zarobek">0</span> zł</h2>
 <button onclick="toggleSummary()">Pokaż podsumowanie</button>
 <div class="form-inline">
 <input id="nowyZawodnik" placeholder="Imię i nazwisko" type="text"/>
@@ -171,8 +172,8 @@
         const sumaNiezapisaneM = podsumowanieM(niezapisaneM);
         const elemZapisane = document.getElementById("suma-zapisane");
         const elemNiezapisane = document.getElementById("suma-niezapisane");
-        if (elemZapisane) elemZapisane.textContent = sumaZapisaneM;
-        if (elemNiezapisane) elemNiezapisane.textContent = sumaNiezapisaneM;
+        if (elemZapisane) elemZapisane.textContent = (sumaZapisaneM * 0.7).toFixed(2);
+        if (elemNiezapisane) elemNiezapisane.textContent = (sumaNiezapisaneM * 1.0).toFixed(2);
 
         // --- ZMIANA % vs poprzedni miesiąc (do tego samego dnia miesiąca) ---
         const zmZapisane = document.getElementById("zmiana-zapisane");
@@ -273,6 +274,23 @@
       document.getElementById("suma").innerText = suma;
       document.getElementById("suma70").innerText = (suma*0.7).toFixed(2);
       document.getElementById("suma30").innerText = (suma*0.3).toFixed(2);
+      // --- Dzisiejszy zarobek (zapisane = 70%, niezapisane = 100%) ---
+      (function() {
+        const today = new Date().toISOString().split("T")[0];
+        const dzisiejsze = (filtrowaneTreningi || []).filter(t => t.data === today);
+        let zarobekDzis = 0;
+        dzisiejsze.forEach(t => {
+          const stawka = parseFloat(t.stawka) || 0;
+          if (t.zapisano) {
+            zarobekDzis += stawka * 0.7;
+          } else {
+            zarobekDzis += stawka;
+          }
+        });
+        const dzElem = document.getElementById("dzisiaj-zarobek");
+        if (dzElem) dzElem.innerText = zarobekDzis.toFixed(2);
+      })();
+
 
       wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
       zawodnicy.forEach(z=>{
@@ -343,7 +361,15 @@ w tytule "#treIND" ${z.name}`;
       });
     }
 
-    window.onload=function(){ document.getElementById("data").value=new Date().toISOString().split("T")[0]; odswiez(); }
+    window.onload=function(){
+  const todayISO = new Date().toISOString().split("T")[0];
+  document.getElementById("data").value = todayISO;
+  // ustaw miesiąc na bieżący (MM)
+  const miesiacSel = document.getElementById("miesiac");
+  const mm = todayISO.split("-")[1];
+  if (miesiacSel) miesiacSel.value = mm;
+  odswiez();
+}
   
 
 async function zapiszTreningDoArkusza(trening, btn) {
@@ -417,8 +443,8 @@ async function zapiszDzisiejszeTreningi(btn) {
     const sumaNiezapisane = podsumowanie(niezapisane);
     const elemZapisane = document.getElementById("suma-zapisane");
     const elemNiezapisane = document.getElementById("suma-niezapisane");
-    if (elemZapisane) elemZapisane.textContent = sumaZapisane;
-    if (elemNiezapisane) elemNiezapisane.textContent = sumaNiezapisane;
+    if (elemZapisane) elemZapisane.textContent = (sumaZapisane * 0.7).toFixed(2);
+    if (elemNiezapisane) elemNiezapisane.textContent = (sumaNiezapisane * 1.0).toFixed(2);
     const dzisiaj = (treningi || []).filter(t => t.data === today);
     if (dzisiaj.length === 0) {
       return;
@@ -478,13 +504,11 @@ async function zapiszDzisiejszeTreningi(btn) {
 <div style="flex:1; padding:15px; border-radius:10px; background-color:#001f3f; box-shadow:0 0 5px rgba(0,0,0,0.2);">
 <h3 style="margin-top:0; color:#fff;">Jaguar ARENA</h3>
 <p><strong>Suma:</strong> <span id="suma-zapisane">0</span> zł</p>
-<p><em>Zmiana (vs poprzedni m-c, do tego samego dnia):</em> <span id="zmiana-zapisane">—</span></p>
 </div>
 
 <div style="flex:1; padding:15px; border-radius:10px; background-color:#001f3f; box-shadow:0 0 5px rgba(0,0,0,0.2);">
 <h3 style="margin-top:0; color:#fff;">INNE LOKALIZACJE</h3>
 <p><strong>Suma:</strong> <span id="suma-niezapisane">0</span> zł</p>
-<p><em>Zmiana (vs poprzedni m-c, do tego samego dnia):</em> <span id="zmiana-niezapisane">—</span></p>
 </div>
 </div></body>
 </html>
