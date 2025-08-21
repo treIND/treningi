@@ -37,7 +37,7 @@
 <body>
 <h1>#trening<span style="color:#fff">IND</span></h1>
 <h2>Dzisiejszy zarobek: <span id="dzisiaj-zarobek">0</span> zł</h2>
-<button onclick="toggleSummary()">Pokaż podsumowanie</button>
+
 <div class="form-inline">
 <input id="nowyZawodnik" placeholder="Imię i nazwisko" type="text"/>
 <input id="nowyTelefon" placeholder="Numer telefonu (np. 48123123123)" type="text"/>
@@ -57,7 +57,7 @@
 <button onclick="ustawStawke(110)" type="button">110 zł</button>
 </div>
 <input id="stawka" type="hidden" value="60"/>
-<button onclick="dodajTrening()">Dodaj trening</button><div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;"><button onclick="zapiszDzisiejszeTreningi()" style="background-color: #444; color: #fff; border: 1px solid #666;">Zapisz dzisiejsze treningi</button></div>
+<button onclick="dodajTrening()">Dodaj trening</button>
 <label for="miesiac">Wybierz miesiąc:</label>
 <select id="miesiac" onchange="odswiez()">
 <option value="all">Wszystkie</option>
@@ -500,15 +500,33 @@ async function zapiszDzisiejszeTreningi(btn) {
   } catch (e) {
   }
 }</script>
-<div id="podsumowania" style="display:flex; gap:20px; margin:30px 0;">
-<div style="flex:1; padding:15px; border-radius:10px; background-color:#001f3f; box-shadow:0 0 5px rgba(0,0,0,0.2);">
-<h3 style="margin-top:0; color:#fff;">Jaguar ARENA</h3>
-<p><strong>Suma:</strong> <span id="suma-zapisane">0</span> zł</p>
 </div>
+<a href="podstrona_treningi_stawki.html" class="floating-btn" title="Statystyki">📊<span style="font-size:14px; margin-left:4px;">Statystyki</span></a>
 
-<div style="flex:1; padding:15px; border-radius:10px; background-color:#001f3f; box-shadow:0 0 5px rgba(0,0,0,0.2);">
-<h3 style="margin-top:0; color:#fff;">INNE LOKALIZACJE</h3>
-<p><strong>Suma:</strong> <span id="suma-niezapisane">0</span> zł</p>
-</div>
-</div></body>
+<style>
+  .floating-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background-color: #55B4FF;
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    text-decoration: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transition: background 0.2s;
+    z-index: 9999;
+  }
+  .floating-btn:hover {
+    background-color: #3399FF;
+  }
+</style>
+
+</body>
 </html>
