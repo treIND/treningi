@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zawodnicy — panel</title>
+  <style>
+    body { background:#0b0b0b; color:#eaeaea; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin:20px; }
+    h1 { font-size:20px; margin:0 0 16px; }
+    .card { background:#111; border:1px solid #333; border-radius:12px; padding:16px; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th, td { border-bottom:1px solid #222; padding:8px 10px; text-align:left; vertical-align:middle; }
+    th { background:#151515; position:sticky; top:0; z-index:1; }
+    .toolbar { display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap }
+    .btn { padding:8px 12px; border-radius:8px; border:1px solid #333; background:#1f2937; color:#fff; cursor:pointer }
+    .btn:hover { background:#2d3748 }
+    .btn-primary { background:#2563eb; border-color:#1d4ed8 }
+    .btn-primary:hover { background:#1d4ed8 }
+    .btn-danger { background:#b91c1c; border-color:#991b1b }
+    .btn-danger:hover { background:#991b1b }
+    input, select { background:#0b0b0b; border:1px solid #333; color:#eee; border-radius:8px; padding:6px 8px; width:100% }
+    .row-actions .btn { margin-right:6px }
+    .muted { color:#aaa; font-size:12px }
+    .pill { padding:2px 8px; border-radius:999px; border:1px solid #333; display:inline-block }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<a href="./index.html" style="
+  display:inline-block;
+  margin:10px 0;
+  padding:8px 12px;
+  background:#2563eb;
+  color:#fff;
+  border-radius:8px;
+  text-decoration:none;
+">← Powrót do strony głównej</a>
+
+  <h1>Zawodnicy — panel</h1>
+  <div class="card">
+    <div class="toolbar">
+      <button class="btn" onclick="loadPlayers()">Odśwież</button>
+      <a class="btn" href="index_with_players_link.html">← Powrót</a>
+      <span class="muted">Kolumny: id, phone, name, rocznik (bez pola 'oplacono' w widoku)</span>
+    </div>
+
+    <h3 style="margin:8px 0 6px">Dodaj zawodnika</h3>
+    <div class="toolbar" style="gap:10px;display:grid;grid-template-columns:90px 1fr 1fr 120px 150px;align-items:center">
+      <span class="muted">ID: automatycznie</span>
+      <input id="add_name" placeholder="Imię i nazwisko">
+      <input id="add_phone" placeholder="Telefon">
+      <input id="add_rocznik" placeholder="Rocznik (np. 2016)">
+      
+      <button class="btn btn-primary" onclick="addPlayer()">Dodaj</button>
+    </div>
+
+    <h3 style="margin:14px 0 6px">Lista</h3>
+    <div class="muted" style="margin-bottom:8px">Kliknij pole, zmień i naciśnij „Zapisz” w wierszu.</div>
+    <div id="playersTableWrap"><div class="muted">Ładowanie…</div></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://vwthvwqcqlsnikvqdeia.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dGh2d3FjcWxzbmlrdnFkZWlhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzczMDI2NCwiZXhwIjoyMDY5MzA2MjY0fQ.IRZwe-xSdLbOGPLTupsGubivGV6_-jRgw3C-9zPfpKA";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const tabela = document.querySelector("#tabela tbody");
+    const zawodnikSelect = document.getElementById("zawodnik");
+    const dataInput = document.getElementById("data");
+    const wiadomosciDiv = document.getElementById("wiadomosci");
+
+    function toggleSummary() {
+      const summary = document.querySelector('.summary');
+      summary.style.display = (summary.style.display === 'none' || summary.style.display === '') ? 'block' : 'none';
+    }
+    function ustawStawke(wartosc) {
+      document.getElementById("stawka").value = wartosc;
+
+      // podświetlenie klikniętego przycisku
+      const buttons = document.querySelectorAll("#stawki button");
+      buttons.forEach(btn => btn.classList.remove("sapphire")); // usuń stare podświetlenia
+
+      const clicked = Array.from(buttons).find(btn => btn.textContent.includes(wartosc));
+      if (clicked) {
+        clicked.classList.add("sapphire");
+        setTimeout(() => clicked.classList.remove("sapphire"), 3000); // usuń po 3s
+      }
+    }
+
+    async function dodajNowegoZawodnika() {
+      const name = document.getElementById("nowyZawodnik").value.trim();
+      const phone = document.getElementById("nowyTelefon").value.trim();
+      await supabase.from("zawodnicy").insert([{ name, phone }]);
+      document.getElementById("nowyZawodnik").value = "";
+      document.getElementById("nowyTelefon").value = "";
+      odswiez();
+    }
+
+    async function dodajTrening() {
+      const zawodnik = zawodnikSelect.value;
+      const data = dataInput.value;
+      const stawka = document.getElementById("stawka").value;
+      const { data: inserted } = await supabase.from("treningi").insert([{ zawodnik, data, stawka }]).select();
+      if (inserted && inserted.length > 0) {
+        window.lastAddedId = inserted[0].id; // zapamiętujemy nowy trening
+      }
+      odswiez();
+    }
+
+    async function usunTrening(id) {
+      if (!confirm("Czy na pewno chcesz usunąć ten trening?")) return;
+      await supabase.from("treningi").delete().eq("id", id);
+      odswiez();
+    }
+
+    async function usunZawodnika(nazwa) {
+      if (!confirm("Czy na pewno chcesz usunąć zawodnika wraz z jego treningami?")) return;
+      await supabase.from("zawodnicy").delete().eq("name", nazwa);
+      await supabase.from("treningi").delete().eq("zawodnik", nazwa);
+      await supabase.from("oplacenia").delete().eq("zawodnik", nazwa);
+      odswiez();
+    }
+
+    async function odswiez() {
+      const { data: zawodnicy } = await supabase.from("zawodnicy").select("*");
+      const { data: treningi } = await supabase.from("treningi").select("*");
+    // (usunięto: liczenie podsumowania globalnego – teraz liczymy po miesiącu)
+      const { data: oplacenia } = await supabase.from("oplacenia").select("*");
+
+      const wybranyMiesiac = document.getElementById("miesiac").value;
+      let filtrowaneTreningi = treningi;
+
+      if (wybranyMiesiac !== "all") {
+        filtrowaneTreningi = treningi.filter(t => t.data.split("-")[1] === wybranyMiesiac);
+      }
+
+      // --- PODSUMOWANIA (wg wybranego miesiąca) ---
+      (function(){
+        const zapisaneM = (filtrowaneTreningi || []).filter(t => t.zapisano);
+        const niezapisaneM = (filtrowaneTreningi || []).filter(t => !t.zapisano);
+        function podsumowanieM(lista) {
+          return lista.reduce((acc, t) => acc + (parseFloat(t.stawka) || 0), 0);
+        }
+        const sumaZapisaneM = podsumowanieM(zapisaneM);
+        const sumaNiezapisaneM = podsumowanieM(niezapisaneM);
+        const elemZapisane = document.getElementById("suma-zapisane");
+        const elemNiezapisane = document.getElementById("suma-niezapisane");
+        if (elemZapisane) elemZapisane.textContent = (sumaZapisaneM * 0.7).toFixed(2);
+        if (elemNiezapisane) elemNiezapisane.textContent = (sumaNiezapisaneM * 1.0).toFixed(2);
+
+        // --- ZMIANA % vs poprzedni miesiąc (do tego samego dnia miesiąca) ---
+        const zmZapisane = document.getElementById("zmiana-zapisane");
+        const zmNiezapisane = document.getElementById("zmiana-niezapisane");
+        const miesiacSel = document.getElementById("miesiac");
+        const wybranyMiesiacVal = miesiacSel ? miesiacSel.value : "all";
+
+        // Gdy 'Wszystkie' -> brak porównania
+        if (wybranyMiesiacVal === "all") {
+          if (zmZapisane) zmZapisane.textContent = "—";
+          if (zmNiezapisane) zmNiezapisane.textContent = "—";
+          return;
+        }
+
+        // Dzień graniczny = dzisiejszy dzień miesiąca (np. 5 -> porównujemy 1..5)
+        const dzienCutoff = new Date().getDate();
+
+        // Poprzedni miesiąc z obsługą przejścia styczeń -> grudzień
+        let pm = parseInt(wybranyMiesiacVal, 10) - 1;
+        if (pm === 0) pm = 12;
+        const prevMonth = String(pm).padStart(2, "0");
+
+        // BIEŻĄCY miesiąc do dniaCutoff
+        const biezaceDoDnia_Z = (filtrowaneTreningi || [])
+          .filter(t => t.zapisano && parseInt(t.data.split("-")[2], 10) <= dzienCutoff);
+        const biezaceDoDnia_N = (filtrowaneTreningi || [])
+          .filter(t => !t.zapisano && parseInt(t.data.split("-")[2], 10) <= dzienCutoff);
+        const sumaCurrZ = podsumowanieM(biezaceDoDnia_Z);
+        const sumaCurrN = podsumowanieM(biezaceDoDnia_N);
+
+        // POPRZEDNI miesiąc do dniaCutoff (liczymy z pełnej listy 'treningi')
+        const poprzednie = (treningi || [])
+          .filter(t => t.data.split("-")[1] === prevMonth && parseInt(t.data.split("-")[2], 10) <= dzienCutoff);
+        const sumaPrevZ = poprzednie.filter(t => t.zapisano).reduce((a,t)=>a+(parseFloat(t.stawka)||0),0);
+        const sumaPrevN = poprzednie.filter(t => !t.zapisano).reduce((a,t)=>a+(parseFloat(t.stawka)||0),0);
+
+        const calcChange = (curr, prev) => {
+          if (prev > 0) {
+            const pct = ((curr - prev) / prev) * 100;
+            return (pct >= 0 ? "+" : "") + pct.toFixed(1) + "%";
+          }
+          return "—";
+        };
+
+        if (zmZapisane) zmZapisane.textContent = calcChange(sumaCurrZ, sumaPrevZ);
+        if (zmNiezapisane) zmNiezapisane.textContent = calcChange(sumaCurrN, sumaPrevN);
+      })();
+      zawodnikSelect.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.disabled = true; placeholder.selected = true; placeholder.textContent = "Dodaj zawodnika";
+      zawodnikSelect.appendChild(placeholder);
+      zawodnicy.forEach(z => {
+        const option = document.createElement("option");
+        option.value = z.name;
+        option.textContent = z.name;
+        zawodnikSelect.appendChild(option);
+      });
+
+      tabela.innerHTML = "";
+      let suma = 0;
+      filtrowaneTreningi.sort((a,b)=> new Date(b.data)-new Date(a.data)).forEach(t=>{
+        suma += parseFloat(t.stawka);
+        const tr = document.createElement("tr");
+
+        const today = new Date().toISOString().split("T")[0];
+        let dataCell = t.data;
+
+        // nowo dodany trening -> zielony przez 3s, potem granatowy jeśli dzisiejszy
+        if (t.id === window.lastAddedId) {
+          tr.style.backgroundColor = "#013220"; // zielony
+          setTimeout(() => {
+            if (t.data === today) {
+              tr.style.backgroundColor = "#001f3f"; // granatowy do końca dnia
+            } else {
+              tr.style.backgroundColor = "";
+            }
+          }, 3000);
+        } else if (t.data === today) {
+          tr.style.backgroundColor = "#001f3f"; // granatowy dla dzisiejszych
+        }
+
+        tr.innerHTML = `<td>${t.zawodnik}</td><td>${dataCell}</td><td>${t.stawka}</td>`;
+        const td = document.createElement("td");
+        const btnUsun = document.createElement("button");
+        btnUsun.textContent = "Usuń";
+        btnUsun.onclick = () => usunTrening(t.id);
+
+        const btnZapisz = document.createElement("button");
+        btnZapisz.textContent = t.zapisano ? "Zapisano" : "Zapisz w tabeli";
+        if (t.zapisano) { btnZapisz.style.backgroundColor = "green"; btnZapisz.style.color = "white"; btnZapisz.disabled = true; }
+        btnZapisz.onclick = () => { if (t.zapisano) return; zapiszTreningDoArkusza(t, btnZapisz); };
+
+        td.appendChild(btnUsun);
+        td.appendChild(btnZapisz);
+        tr.appendChild(td);
+        tabela.appendChild(tr);
+      });
+      document.getElementById("suma").innerText = suma;
+      document.getElementById("suma70").innerText = (suma*0.7).toFixed(2);
+      document.getElementById("suma30").innerText = (suma*0.3).toFixed(2);
+      // --- Dzisiejszy zarobek (zapisane = 70%, niezapisane = 100%) ---
+      (function() {
+        const today = new Date().toISOString().split("T")[0];
+        const dzisiejsze = (filtrowaneTreningi || []).filter(t => t.data === today);
+        let zarobekDzis = 0;
+        dzisiejsze.forEach(t => {
+          const stawka = parseFloat(t.stawka) || 0;
+          if (t.zapisano) {
+            zarobekDzis += stawka * 0.7;
+          } else {
+            zarobekDzis += stawka;
+          }
+        });
+        const dzElem = document.getElementById("dzisiaj-zarobek");
+        if (dzElem) dzElem.innerText = zarobekDzis.toFixed(2);
+      })();
+
+
+      wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
+      zawodnicy.forEach(z=>{
+        let sumaZ = 0;
+        let tresc = `Hej, przesyłam rozliczenie za wybrany miesiąc.
+${z.name}:
+`;
+        const jegoTreningi = filtrowaneTreningi.filter(t=>t.zawodnik===z.name);
+        jegoTreningi.forEach(t=>{ tresc += `- ${t.data}: ${t.stawka} zł
+`; sumaZ+=parseFloat(t.stawka); });
+        if(jegoTreningi.length>0){ tresc+=`Suma: ${sumaZ} zł`; } else { tresc="Brak treningów w tym miesiącu."; }
+        const blok = document.createElement("div"); blok.className="wiadomosc-blok";
+        const nag = document.createElement("h4"); nag.textContent=z.name; blok.appendChild(nag);
+        const tekst=document.createElement("pre"); tekst.textContent=tresc; blok.appendChild(tekst);
+
+        if (jegoTreningi.length > 0) {
+          const whatsappBtn = document.createElement("button");
+          whatsappBtn.textContent = "Wyślij przez WhatsApp";
+          whatsappBtn.onclick = () => window.open(`https://wa.me/${z.phone}?text=${encodeURIComponent(tresc)}`, "_blank");
+          blok.appendChild(whatsappBtn);
+        }
+        // Drugi przycisk: "Kiwaj jak Yamal" (tytuł skrócony do #treIND)
+        if (jegoTreningi.length > 0) {
+          const sumaTekst = `${sumaZ} zł`;
+          const yamalMsg = `Kiwaj jak Yamal
+Kwota: ${sumaTekst}
+
+KONTO SANTANDER
+ODBIORCA: PATRYCJA SAPIELAK
+72109010980000000158754396
+
+w tytule "#treIND" ${z.name}`;
+          const yamalBtn = document.createElement("button");
+          yamalBtn.textContent = "Kiwaj jak Yamal";
+          yamalBtn.onclick = () => window.open(`https://wa.me/${z.phone}?text=${encodeURIComponent(yamalMsg)}`, "_blank");
+          blok.appendChild(yamalBtn);
+        }
+    
+
+        // obsługa opłacenia
+        const oplata = oplacenia.find(o => o.zawodnik === z.name && o.miesiac === wybranyMiesiac);
+        let status = oplata ? oplata.oplacono : false;
+
+        const zaplaconoBtn = document.createElement("button");
+        const ustawStyl = (status) => {
+          if (status) { blok.style.backgroundColor="#013220"; zaplaconoBtn.textContent="Cofnij opłacenie"; }
+          else { blok.style.backgroundColor=""; zaplaconoBtn.textContent="Zapłacono"; }
+        };
+        ustawStyl(status);
+        zaplaconoBtn.onclick = async () => {
+          const nowyStatus = !status;
+          if (oplata) {
+            await supabase.from("oplacenia").update({ oplacono: nowyStatus }).eq("id", oplata.id);
+          } else {
+            await supabase.from("oplacenia").insert([{ zawodnik: z.name, miesiac: wybranyMiesiac, oplacono: nowyStatus }]);
+          }
+          status = nowyStatus;
+          ustawStyl(status);
+        };
+        blok.appendChild(zaplaconoBtn);
+
+        const usunBtn = document.createElement("button");
+        usunBtn.textContent="Usuń zawodnika";
+        usunBtn.onclick=()=> usunZawodnika(z.name);
+        blok.appendChild(usunBtn);
+
+        wiadomosciDiv.appendChild(blok);
+      });
+    }
+
+    window.onload=function(){
+  const todayISO = new Date().toISOString().split("T")[0];
+  document.getElementById("data").value = todayISO;
+  // ustaw miesiąc na bieżący (MM)
+  const miesiacSel = document.getElementById("miesiac");
+  const mm = todayISO.split("-")[1];
+  if (miesiacSel) miesiacSel.value = mm;
+  odswiez();
+}
+  
+
+async function zapiszTreningDoArkusza(trening, btn) {
+  try {
+    const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: [{
+        zawodnik: trening.zawodnik,
+        data: trening.data,
+        stawka: trening.stawka
+      }]})
+    });
+    if (response.ok) {
+      /* 3min highlight */
+      if (btn) {
+        btn.style.backgroundColor = "green";
+        btn.style.color = "white";
+        btn.textContent = "Wysłano ✓";
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.style.backgroundColor = "";
+          btn.style.color = "";
+          btn.textContent = "Zapisz w tabeli";
+          btn.disabled = false;
+        }, 180000); // 3 min
+      }
+      // update Supabase flag for this training
+      try {
+        if (trening.id) {
+          await supabase.from("treningi").update({ zapisano: true }).eq("id", trening.id);
+        }
+      } catch (e) { /* silent */ }
+      if (btn) {
+        // removed immediate styling
+        // removed immediate styling
+        // removed immediate styling
+        setTimeout(() => {
+          btn.style.backgroundColor = "";
+          btn.style.color = "";
+          btn.textContent = "Zapisz dzisiejsze treningi";
+        }, 2000);
+      }
+      if (btn) {
+        // removed immediate styling
+        // removed immediate styling
+        // removed immediate styling
+        setTimeout(() => {
+          btn.style.backgroundColor = "";
+          btn.style.color = "";
+          btn.textContent = "Zapisz w tabeli";
+        }, 2000);
+      }
+    } else {
+      const txt = await response.text();
+    }
+  } catch (e) {
+  }
+}
+
+async function zapiszDzisiejszeTreningi(btn) {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const { data: treningi } = await supabase.from("treningi").select("*");
+    const zapisane = (treningi || []).filter(t => t.zapisano);
+    const niezapisane = (treningi || []).filter(t => !t.zapisano);
+    function podsumowanie(lista) {
+      return lista.reduce((acc, t) => acc + (parseFloat(t.stawka) || 0), 0);
+    }
+    const sumaZapisane = podsumowanie(zapisane);
+    const sumaNiezapisane = podsumowanie(niezapisane);
+    const elemZapisane = document.getElementById("suma-zapisane");
+    const elemNiezapisane = document.getElementById("suma-niezapisane");
+    if (elemZapisane) elemZapisane.textContent = (sumaZapisane * 0.7).toFixed(2);
+    if (elemNiezapisane) elemNiezapisane.textContent = (sumaNiezapisane * 1.0).toFixed(2);
+    const dzisiaj = (treningi || []).filter(t => t.data === today);
+    if (dzisiaj.length === 0) {
+      return;
+    }
+    const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: dzisiaj })
+    });
+    if (response.ok) {
+      /* 3min highlight */
+      if (btn) {
+        btn.style.backgroundColor = "green";
+        btn.style.color = "white";
+        btn.textContent = "Wysłano ✓";
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.style.backgroundColor = "";
+          btn.style.color = "";
+          btn.textContent = "Zapisz w tabeli";
+          btn.disabled = false;
+        }, 180000); // 3 min
+      }
+      // update Supabase flag for this training
+      try {
+        if (trening.id) {
+          await supabase.from("treningi").update({ zapisano: true }).eq("id", trening.id);
+        }
+      } catch (e) { /* silent */ }
+      if (btn) {
+        // removed immediate styling
+        // removed immediate styling
+        // removed immediate styling
+        setTimeout(() => {
+          btn.style.backgroundColor = "";
+          btn.style.color = "";
+          btn.textContent = "Zapisz dzisiejsze treningi";
+        }, 2000);
+      }
+      if (btn) {
+        // removed immediate styling
+        // removed immediate styling
+        // removed immediate styling
+        setTimeout(() => {
+          btn.style.backgroundColor = "";
+          btn.style.color = "";
+          btn.textContent = "Zapisz w tabeli";
+        }, 2000);
+      }
+    } else {
+      const txt = await response.text();
+    }
+  } catch (e) {
+  }
+}</script>
+
+  <script>
+    async function loadPlayers() {
+      const { data, error } = await supabase.from("players").select("*").order("id", { ascending: true });
+      if (error) { console.error(error); document.getElementById('playersTableWrap').innerHTML = "<p>Błąd: "+error.message+"</p>"; return; }
+      const tbody = (data||[]).map(p => {
+        
+        return (
+          '<tr data-id="'+p.id+'">' +
+            '<td><span class="pill">#'+p.id+'</span></td>' +
+            '<td><input value="'+(p.phone||'')+'" data-field="phone"></td>' +
+            '<td><input value="'+(p.name||'')+'" data-field="name"></td>' +
+            '' +
+            '<td><input value="'+(p.rocznik??'')+'" data-field="rocznik" placeholder="np. 2016"></td>' +
+            '<td class="row-actions">' +
+              '<button class="btn btn-primary" onclick="saveRow(this)">Zapisz</button>' +
+              '<button class="btn btn-danger" onclick="deleteRow(this)">Usuń</button>' +
+            '</td>' +
+          '</tr>'
+        );
+      }).join("");
+      document.getElementById('playersTableWrap').innerHTML = `
+        <table>
+          <thead>
+            <tr><th>id</th><th>phone</th><th>name</th><th>rocznik</th><th>akcje</th></tr>
+          </thead>
+          <tbody>${tbody}</tbody>
+        </table>`;
+    }
+
+    async function addPlayer() {
+      const name = document.getElementById('add_name').value.trim();
+      const phone = document.getElementById('add_phone').value.trim();
+      const rocznikRaw = document.getElementById('add_rocznik').value.trim();
+      const rocznik = rocznikRaw==='' ? null : Number(rocznikRaw);
+      
+      if(!name) return alert("Podaj imię i nazwisko");
+      const { error } = await supabase.from("players").insert([{ name, phone, rocznik }]);
+      if(error) return alert("Błąd dodawania: "+error.message);
+      document.getElementById('add_name').value='';
+      document.getElementById('add_phone').value='';
+      document.getElementById('add_rocznik').value='';
+      
+      await loadPlayers();
+    }
+
+    function collectRowPayload(tr) {
+      const inputs = tr.querySelectorAll('[data-field]');
+      const payload = {};
+      inputs.forEach(el => {
+        const f = el.getAttribute('data-field');
+        payload[f] = (el.type === 'checkbox') ? el.checked : (f==='rocznik' && el.value!=='' ? Number(el.value) : (el.value===''? null : el.value));
+      });
+      return payload;
+    }
+
+    async function saveRow(btn) {
+      const tr = btn.closest('tr');
+      const id = Number(tr.getAttribute('data-id'));
+      const payload = collectRowPayload(tr);
+      const { error } = await supabase.from("players").update(payload).eq("id", id);
+      if(error) return alert("Błąd zapisu: "+error.message);
+      await loadPlayers();
+    }
+
+    async function deleteRow(btn) {
+      const tr = btn.closest('tr');
+      const id = Number(tr.getAttribute('data-id'));
+      if(!confirm("Usunąć tego zawodnika?")) return;
+      if(!confirm("Na pewno? Tej operacji nie da się cofnąć.")) return; // podwójne pytanie
+      const { error } = await supabase.from("players").delete().eq("id", id);
+      if(error) return alert("Błąd usuwania: "+error.message);
+      await loadPlayers();
+    }
+
+    loadPlayers();
+  </script>
+</body>
+</html>
