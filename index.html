@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Rozliczenie Treningów</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<style>
+    body { font-family: 'League Spartan', sans-serif; padding: 2rem; background: #000; color: #fff; }
+    label, select, input, button, textarea { margin: 0.5rem 0; display: block; color: #fff; }
+    input, select, textarea { background-color: #111; border: 1px solid #555; color: #fff; padding: 0.3rem; }
+    button { background-color: #55B4FF; color: #000; border: none; padding: 0.5rem 1rem; cursor: pointer; border-radius: 5px; margin-right: 0.5rem; }
+    .summary { display: none; position: fixed; top: 1rem; right: 1rem; background: #111; padding: 1rem; border: 1px solid #333; border-radius: 10px; }
+    table { width: 100%; margin-top: 1rem; border-collapse: collapse; }
+    th, td { border: 1px solid #555; padding: 0.5rem; text-align: left; }
+    h1 { color: #55B4FF; }
+    .wiadomosci-do-wyslania { margin-top: 2rem; }
+    .wiadomosc-blok { background: #111; border: 1px solid #333; padding: 1rem; margin-bottom: 1rem; border-radius: 10px; }
+    .wiadomosc-blok h4 { margin: 0 0 0.5rem 0; color: #55B4FF; }
+    .form-inline { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+    #stawki { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 0.5rem; }
+    #stawki button { padding: 0.6rem 1.2rem; font-size: 1rem; background-color: #222; color: white; border: 1px solid #555; border-radius: 6px; cursor: pointer; flex-shrink: 0; }
+    #stawki button:hover { background-color: #333; }
+    #stawki button.highlight { background-color: #2ecc71 !important; color: black !important; }
+    #stawki button.sapphire { background-color: #0F52BA !important; color: #fff !important; }
+</style>
+</head>
+<body>
+<h1>#trening<span style="color:#fff">IND</span></h1>
+<h2>Dzisiejszy zarobek: <span id="dzisiaj-zarobek">0</span> zł</h2>
+
+<div class="form-inline">
+  <input id="nowyZawodnik" placeholder="Imię i nazwisko" type="text"/>
+  <input id="nowyTelefon" placeholder="Numer telefonu (np. 48123123123)" type="text"/>
+  <button onclick="dodajNowegoZawodnika()">Dodaj zawodnika</button>
+</div>
+
+<label for="zawodnik">Zawodnik:</label>
+<select id="zawodnik" style="max-width: 400px;"></select>
+
+<label for="data">Data treningu:</label>
+<input id="data" type="date"/>
+
+<label>Stawka:</label>
+<div id="stawki">
+  <button onclick="ustawStawke(40)" type="button">40 zł</button>
+  <button onclick="ustawStawke(50)" type="button">50 zł</button>
+  <button onclick="ustawStawke(60)" type="button">60 zł</button>
+  <button onclick="ustawStawke(70)" type="button">70 zł</button>
+  <button onclick="ustawStawke(80)" type="button">80 zł</button>
+  <button onclick="ustawStawke(110)" type="button">110 zł</button>
+</div>
+<input id="stawka" type="hidden" value="60"/>
+<button onclick="dodajTrening()">Dodaj trening</button>
+
+<label for="miesiac">Wybierz miesiąc:</label>
+<select id="miesiac" onchange="odswiez()">
+  <option value="all">Wszystkie</option>
+  <option value="01">Styczeń</option>
+  <option value="02">Luty</option>
+  <option value="03">Marzec</option>
+  <option value="04">Kwiecień</option>
+  <option value="05">Maj</option>
+  <option value="06">Czerwiec</option>
+  <option value="07">Lipiec</option>
+  <option value="08">Sierpień</option>
+  <option value="09">Wrzesień</option>
+  <option value="10">Październik</option>
+  <option value="11">Listopad</option>
+  <option value="12">Grudzień</option>
+</select>
+
+<table id="tabela">
+  <thead>
+    <tr><th>Zawodnik</th><th>Data</th><th>Stawka</th><th>Akcja</th></tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div class="summary">
+  <strong>Podsumowanie</strong>
+  <p>Całość: <span id="suma"></span> zł</p>
+  <p>70%: <span id="suma70"></span> zł</p>
+  <p>30%: <span id="suma30"></span> zł</p>
+</div>
+
+<div class="wiadomosci-do-wyslania" id="wiadomosci"></div>
+
+<script>
+  const SUPABASE_URL = "https://vwthvwqcqlsnikvqdeia.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dGh2d3FjcWxzbmlrdnFkZWlhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzczMDI2NCwiZXhwIjoyMDY5MzA2MjY0fQ.IRZwe-xSdLbOGPLTupsGubivGV6_-jRgw3C-9zPfpKA";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const tabela = document.querySelector("#tabela tbody");
+  const zawodnikSelect = document.getElementById("zawodnik");
+  const dataInput = document.getElementById("data");
+  const wiadomosciDiv = document.getElementById("wiadomosci");
+
+  function ustawStawke(wartosc) {
+    document.getElementById("stawka").value = wartosc;
+    const buttons = document.querySelectorAll("#stawki button");
+    buttons.forEach(btn => btn.classList.remove("sapphire"));
+    const clicked = Array.from(buttons).find(btn => btn.textContent.includes(wartosc));
+    if (clicked) { clicked.classList.add("sapphire"); setTimeout(() => clicked.classList.remove("sapphire"), 3000); }
+  }
+
+  async function dodajNowegoZawodnika() {
+    const name = document.getElementById("nowyZawodnik").value.trim();
+    const phone = document.getElementById("nowyTelefon").value.trim();
+    if (!name) { alert("Podaj imię i nazwisko."); return; }
+    if (!phone) { alert("Podaj numer telefonu."); return; }
+    const { error } = await supabase.from("players").insert([{ name, phone }]);
+    if (error) { alert("Błąd dodawania zawodnika: " + error.message); return; }
+    document.getElementById("nowyZawodnik").value = "";
+    document.getElementById("nowyTelefon").value = "";
+    await odswiez();
+  }
+
+  async function dodajTrening() {
+    const zawodnik = zawodnikSelect.value;
+    const data = dataInput.value;
+    const stawka = document.getElementById("stawka").value;
+    if (!zawodnik || zawodnik === "__placeholder__") { alert("Wybierz zawodnika."); return; }
+    if (!data) { alert("Wybierz datę."); return; }
+    const { data: inserted, error } = await supabase.from("treningi").insert([{ zawodnik, data, stawka }]).select();
+    if (error) { alert("Błąd dodawania treningu: " + error.message); return; }
+    if (inserted && inserted.length > 0) { window.lastAddedId = inserted[0].id; }
+    await odswiez();
+  }
+
+  async function usunTrening(id) {
+    if (!confirm("Czy na pewno chcesz usunąć ten trening?")) return;
+    const { error } = await supabase.from("treningi").delete().eq("id", id);
+    if (error) { alert("Błąd usuwania treningu: " + error.message); }
+    await odswiez();
+  }
+
+  async function usunZawodnika(nazwa) {
+    if (!confirm("Czy na pewno chcesz usunąć zawodnika wraz z jego treningami?")) return;
+    const { error: e1 } = await supabase.from("players").delete().eq("name", nazwa);
+    const { error: e2 } = await supabase.from("treningi").delete().eq("zawodnik", nazwa);
+    const { error: e3 } = await supabase.from("oplacenia").delete().eq("zawodnik", nazwa);
+    if (e1 || e2 || e3) { alert("Błąd podczas usuwania."); }
+    await odswiez();
+  }
+
+  async function odswiez() {
+    const { data: players = [] } = await supabase.from("players").select("*").order("name", { ascending: true });
+    const { data: treningi = [] } = await supabase.from("treningi").select("*");
+    const { data: oplacenia = [] } = await supabase.from("oplacenia").select("*");
+
+    const wybranyMiesiac = document.getElementById("miesiac").value;
+    let filtrowaneTreningi = treningi;
+    if (wybranyMiesiac !== "all") {
+      filtrowaneTreningi = treningi.filter(t => (t.data || "").split("-")[1] === wybranyMiesiac);
+    }
+
+    // Podsumowania wg miesiąca
+    (function(){
+      const zapisaneM = (filtrowaneTreningi || []).filter(t => t.zapisano);
+      const niezapisaneM = (filtrowaneTreningi || []).filter(t => !t.zapisano);
+      const sum = (lista) => lista.reduce((acc, t) => acc + (parseFloat(t.stawka) || 0), 0);
+      const elemZapisane = document.getElementById("suma-zapisane");
+      const elemNiezapisane = document.getElementById("suma-niezapisane");
+      if (elemZapisane) elemZapisane.textContent = (sum(zapisaneM) * 0.7).toFixed(2);
+      if (elemNiezapisane) elemNiezapisane.textContent = (sum(niezapisaneM) * 1.0).toFixed(2);
+      const zmZapisane = document.getElementById("zmiana-zapisane");
+      const zmNiezapisane = document.getElementById("zmiana-niezapisane");
+      const miesiacSel = document.getElementById("miesiac");
+      const wybranyMiesiacVal = miesiacSel ? miesiacSel.value : "all";
+      if (wybranyMiesiacVal === "all") {
+        if (zmZapisane) zmZapisane.textContent = "—";
+        if (zmNiezapisane) zmNiezapisane.textContent = "—";
+        return;
+      }
+      const dzienCutoff = new Date().getDate();
+      let pm = parseInt(wybranyMiesiacVal, 10) - 1;
+      if (pm === 0) pm = 12;
+      const prevMonth = String(pm).padStart(2, "0");
+      const biezaceDoDnia_Z = (filtrowaneTreningi || [])
+        .filter(t => t.zapisano && parseInt((t.data || "0000-00-00").split("-")[2], 10) <= dzienCutoff);
+      const biezaceDoDnia_N = (filtrowaneTreningi || [])
+        .filter(t => !t.zapisano && parseInt((t.data || "0000-00-00").split("-")[2], 10) <= dzienCutoff);
+      const sumaCurrZ = sum(biezaceDoDnia_Z);
+      const sumaCurrN = sum(biezaceDoDnia_N);
+      const poprzednie = (treningi || [])
+        .filter(t => (t.data || "").split("-")[1] === prevMonth && parseInt((t.data || "0000-00-00").split("-")[2], 10) <= dzienCutoff);
+      const sumaPrevZ = poprzednie.filter(t => t.zapisano).reduce((a,t)=>a+(parseFloat(t.stawka)||0),0);
+      const sumaPrevN = poprzednie.filter(t => !t.zapisano).reduce((a,t)=>a+(parseFloat(t.stawka)||0),0);
+      const calcChange = (curr, prev) => (prev > 0) ? (((curr - prev) / prev) * 100 >= 0 ? "+" : "") + (((curr - prev) / prev) * 100).toFixed(1) + "%" : "—";
+      if (zmZapisane) zmZapisane.textContent = calcChange(sumaCurrZ, sumaPrevZ);
+      if (zmNiezapisane) zmNiezapisane.textContent = calcChange(sumaCurrN, sumaPrevN);
+    })();
+
+    // Select zawodników
+    zawodnikSelect.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.disabled = true; placeholder.selected = true; placeholder.value="__placeholder__"; placeholder.textContent = "Wybierz zawodnika";
+    zawodnikSelect.appendChild(placeholder);
+    players.forEach(z => {
+      const option = document.createElement("option");
+      option.value = z.name;
+      option.textContent = z.name;
+      zawodnikSelect.appendChild(option);
+    });
+
+    // Tabela treningów
+    tabela.innerHTML = "";
+    let suma = 0;
+    filtrowaneTreningi.sort((a,b)=> new Date(b.data)-new Date(a.data)).forEach(t=>{
+      suma += parseFloat(t.stawka);
+      const tr = document.createElement("tr");
+      const today = new Date().toISOString().split("T")[0];
+      if (t.id === window.lastAddedId) {
+        tr.style.backgroundColor = "#013220";
+        setTimeout(() => { tr.style.backgroundColor = (t.data === today) ? "#001f3f" : ""; }, 3000);
+      } else if (t.data === today) {
+        tr.style.backgroundColor = "#001f3f";
+      }
+      tr.innerHTML = `<td>${t.zawodnik}</td><td>${t.data}</td><td>${t.stawka}</td>`;
+      const td = document.createElement("td");
+      const btnUsun = document.createElement("button");
+      btnUsun.textContent = "Usuń";
+      btnUsun.onclick = () => usunTrening(t.id);
+      const btnZapisz = document.createElement("button");
+      btnZapisz.textContent = t.zapisano ? "Zapisano" : "Zapisz w tabeli";
+      if (t.zapisano) { btnZapisz.style.backgroundColor = "green"; btnZapisz.style.color = "white"; btnZapisz.disabled = true; }
+      btnZapisz.onclick = () => { if (!t.zapisano) zapiszTreningDoArkusza(t, btnZapisz); };
+      td.appendChild(btnUsun);
+      td.appendChild(btnZapisz);
+      tr.appendChild(td);
+      tabela.appendChild(tr);
+    });
+    document.getElementById("suma").innerText = suma;
+    document.getElementById("suma70").innerText = (suma*0.7).toFixed(2);
+    document.getElementById("suma30").innerText = (suma*0.3).toFixed(2);
+
+    // Dzisiejszy zarobek
+    (function() {
+      const today = new Date().toISOString().split("T")[0];
+      const dzisiejsze = (filtrowaneTreningi || []).filter(t => t.data === today);
+      let zarobekDzis = 0;
+      dzisiejsze.forEach(t => {
+        const stawka = parseFloat(t.stawka) || 0;
+        zarobekDzis += t.zapisano ? (stawka * 0.7) : stawka;
+      });
+      const dzElem = document.getElementById("dzisiaj-zarobek");
+      if (dzElem) dzElem.innerText = zarobekDzis.toFixed(2);
+    })();
+
+    // Wiadomości do wysłania
+    wiadomosciDiv.innerHTML = "<h3>Wiadomości do wysłania:</h3>";
+    players.forEach(z=>{
+      let sumaZ = 0;
+      let tresc = `Hej, przesyłam rozliczenie za wybrany miesiąc.\n${z.name}:\n`;
+      const jegoTreningi = filtrowaneTreningi.filter(t=>t.zawodnik===z.name);
+      jegoTreningi.forEach(t=>{ tresc += `- ${t.data}: ${t.stawka} zł\n`; sumaZ+=parseFloat(t.stawka); });
+      if(jegoTreningi.length>0){ tresc+=`Suma: ${sumaZ} zł`; } else { tresc="Brak treningów w tym miesiącu."; }
+      const blok = document.createElement("div"); blok.className="wiadomosc-blok";
+      const nag = document.createElement("h4"); nag.textContent=z.name; blok.appendChild(nag);
+      const tekst=document.createElement("pre"); tekst.textContent=tresc; blok.appendChild(tekst);
+
+      if (jegoTreningi.length > 0) {
+        const whatsappBtn = document.createElement("button");
+        whatsappBtn.textContent = "Wyślij przez WhatsApp";
+        whatsappBtn.onclick = () => window.open(`https://wa.me/${z.phone}?text=${encodeURIComponent(tresc)}`, "_blank");
+        blok.appendChild(whatsappBtn);
+      }
+      if (jegoTreningi.length > 0) {
+        const sumaTekst = `${sumaZ} zł`;
+        const yamalMsg = `Kiwaj jak Yamal\nKwota: ${sumaTekst}\n\nKONTO SANTANDER\nODBIORCA: PATRYCJA SAPIELAK\n72109010980000000158754396\n\nw tytule "#treIND" ${z.name}`;
+        const yamalBtn = document.createElement("button");
+        yamalBtn.textContent = "Kiwaj jak Yamal";
+        yamalBtn.onclick = () => window.open(`https://wa.me/${z.phone}?text=${encodeURIComponent(yamalMsg)}`, "_blank");
+        blok.appendChild(yamalBtn);
+      }
+
+      const oplata = oplacenia.find(o => o.zawodnik === z.name && o.miesiac === wybranyMiesiac);
+      let status = oplata ? oplata.oplacono : false;
+      const zaplaconoBtn = document.createElement("button");
+      const ustawStyl = (status) => {
+        if (status) { blok.style.backgroundColor="#013220"; zaplaconoBtn.textContent="Cofnij opłacenie"; }
+        else { blok.style.backgroundColor=""; zaplaconoBtn.textContent="Zapłacono"; }
+      };
+      ustawStyl(status);
+      zaplaconoBtn.onclick = async () => {
+        const nowyStatus = !status;
+        if (oplata) {
+          await supabase.from("oplacenia").update({ oplacono: nowyStatus }).eq("id", oplata.id);
+        } else {
+          await supabase.from("oplacenia").insert([{ zawodnik: z.name, miesiac: wybranyMiesiac, oplacono: nowyStatus }]);
+        }
+        status = nowyStatus;
+        ustawStyl(status);
+      };
+      blok.appendChild(zaplaconoBtn);
+
+      const usunBtn = document.createElement("button");
+      usunBtn.textContent="Usuń zawodnika";
+      usunBtn.onclick=()=> usunZawodnika(z.name);
+      blok.appendChild(usunBtn);
+
+      wiadomosciDiv.appendChild(blok);
+    });
+  }
+
+  window.onload=function(){
+    const todayISO = new Date().toISOString().split("T")[0];
+    document.getElementById("data").value = todayISO;
+    const miesiacSel = document.getElementById("miesiac");
+    const mm = todayISO.split("-")[1];
+    if (miesiacSel) miesiacSel.value = mm;
+    odswiez();
+  }
+
+  async function zapiszTreningDoArkusza(trening, btn) {
+    try {
+      const response = await fetch("https://sheetdb.io/api/v1/m6deo8va8c79n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: [{
+          zawodnik: trening.zawodnik,
+          data: trening.data,
+          stawka: trening.stawka
+        }] })
+      });
+      if (response.ok) {
+        if (btn) {
+          btn.style.backgroundColor = "green";
+          btn.style.color = "white";
+          btn.textContent = "Wysłano ✓";
+          btn.disabled = true;
+          setTimeout(() => { btn.style.backgroundColor = ""; btn.style.color = ""; btn.textContent = "Zapisz w tabeli"; btn.disabled = false; }, 180000);
+        }
+        try { if (trening.id) await supabase.from("treningi").update({ zapisano: true }).eq("id", trening.id); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+</script>
+
+<style>
+  .floating-btn { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background-color: #55B4FF; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; text-decoration: none; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: background 0.2s; z-index: 9999; }
+  .floating-btn:hover { background-color: #3399FF; }
+</style>
+
+<style>
+  .floating-link-players { position: fixed; top: 16px; right: 16px; z-index: 9999; background: #2563eb; color: #fff; font-size: 26px; font-family: inherit; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; text-decoration: none; box-shadow: 0 6px 18px rgba(0,0,0,.35); transition: background 0.2s; }
+  .floating-link-players:hover { background: #1d4ed8; }
+</style>
+
+<a class="floating-link-players" href="players_admin (3).html" title="Lista zawodników">+</a>
+
+</body>
+</html>
