@@ -117,7 +117,7 @@
     async function dodajNowegoZawodnika() {
       const name = document.getElementById("nowyZawodnik").value.trim();
       const phone = document.getElementById("nowyTelefon").value.trim();
-      await supabase.from("zawodnicy").insert([{ name, phone }]);
+      await supabase.from("players").insert([{ name, phone }]);
       document.getElementById("nowyZawodnik").value = "";
       document.getElementById("nowyTelefon").value = "";
       odswiez();
@@ -142,14 +142,14 @@
 
     async function usunZawodnika(nazwa) {
       if (!confirm("Czy na pewno chcesz usunąć zawodnika wraz z jego treningami?")) return;
-      await supabase.from("zawodnicy").delete().eq("name", nazwa);
+      await supabase.from("players").delete().eq("name", nazwa);
       await supabase.from("treningi").delete().eq("zawodnik", nazwa);
       await supabase.from("oplacenia").delete().eq("zawodnik", nazwa);
       odswiez();
     }
 
     async function odswiez() {
-      const { data: zawodnicy } = await supabase.from("zawodnicy").select("*");
+      const { data: zawodnicy } = await supabase.from("players").select("name, phone");
       const { data: treningi } = await supabase.from("treningi").select("*");
     // (usunięto: liczenie podsumowania globalnego – teraz liczymy po miesiącu)
       const { data: oplacenia } = await supabase.from("oplacenia").select("*");
@@ -501,8 +501,7 @@ async function zapiszDzisiejszeTreningi(btn) {
   }
 }</script>
 </div>
-<a href="statystyki.html" class="floating-btn" title="Statystyki">📊<span style="font-size:14px; margin-left:4px;">Statystyki</span></a>
-<a href="terminarz.html" class="floating-btn" title="Terminarz" style="bottom: 90px;">📅<span style="font-size:14px; margin-left:4px;">Terminarz</span></a>
+<a href="podstrona.html" class="floating-btn" title="Statystyki">📊<span style="font-size:14px; margin-left:4px;">Statystyki</span></a>
 
 <style>
   .floating-btn {
