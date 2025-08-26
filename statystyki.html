@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Statystyki</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    body { margin:0; font-family:'League Spartan',sans-serif; background:#000; color:#fff; padding:2rem; }
+    h1 { color:#55B4FF; text-align:center; margin-bottom:1.25rem; }
+    .toolbar { display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom:1.25rem; }
+    select { background:#111; color:#fff; border:1px solid #333; padding:6px 10px; border-radius:8px; }
+    .stat-card { background:#111; border:1px solid #333; border-radius:10px; padding:1.2rem; margin-bottom:1.2rem; box-shadow:0 0 10px rgba(0,0,0,0.4); }
+    .stat-card h2 { margin-top:0; color:#55B4FF; text-align:center; }
+    .charts-container { display:grid; grid-template-columns: 1fr 1fr; gap:1rem; }
+    .charts-container .stat-card { text-align:center; }
+    canvas { max-width:100%; margin:0 auto; }
+    #barMonthly { max-width:100%; height:240px !important; }
+    table { width:100%; border-collapse:collapse; margin-top:1rem; }
+    th, td { border:1px solid #333; padding:6px 8px; text-align:center; }
+    th { background:#222; color:#55B4FF; }
+    .btn-back { display:inline-block; margin-top:1rem; padding:0.7rem 1.2rem; background:#55B4FF; color:#000; border-radius:8px; text-decoration:none; font-weight:700; }
+    .delta { font-weight:700; }
+  </style>
+</head>
+<body>
+  <h1>📊 Statystyki</h1>
+
+  <div class="toolbar">
+    <label for="miesiac" style="opacity:0.9;">Miesiąc:</label>
+    <select id="miesiac">
+      <option value="all">Wszystkie</option>
+      <option value="01">Styczeń</option>
+      <option value="02">Luty</option>
+      <option value="03">Marzec</option>
+      <option value="04">Kwiecień</option>
+      <option value="05">Maj</option>
+      <option value="06">Czerwiec</option>
+      <option value="07">Lipiec</option>
+      <option value="08">Sierpień</option>
+      <option value="09">Wrzesień</option>
+      <option value="10">Październik</option>
+      <option value="11">Listopad</option>
+      <option value="12">Grudzień</option>
+    </select>
+  </div>
+
+  <div class="stat-card">
+    <h2>Łączny zarobek w tym miesiącu</h2>
+    <p id="total-earnings">0 zł</p>
+  </div>
+
+  <div class="stat-card">
+    <h2>Dzisiejszy zarobek</h2>
+    <p id="today-earnings">0 zł</p>
+  </div>
+
+  <div class="stat-card">
+    <h2>Porównanie m/m do dzisiejszego dnia</h2>
+    <p>Poprzedni miesiąc (do dnia): <strong id="mom-prev">—</strong></p>
+    <p>Bieżący miesiąc (do dnia): <strong id="mom-curr">—</strong></p>
+    <p>Zmiana: <strong id="mom-change" class="delta">—</strong></p>
+  </div>
+
+  <div class="stat-card">
+    <h2>Kwoty miesięczne (ostatnie 12 mies.)</h2>
+    <canvas id="barMonthly"></canvas>
+  </div>
+
+  <div class="charts-container">
+    <div class="stat-card">
+      <h2>Najwięcej treningów w tym miesiącu (TOP 5)</h2>
+      <canvas id="pieMonth"></canvas>
+    </div>
+
+    <div class="stat-card">
+      <h2>Najwięcej treningów w tym tygodniu (TOP 5)</h2>
+      <canvas id="pieWeek"></canvas>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <h2>Najczęściej używane stawki</h2>
+    <table>
+      <thead>
+        <tr><th>Stawka</th><th>Ilość treningów</th></tr>
+      </thead>
+      <tbody id="stawki-tabela">
+        <tr><td colspan="2">Ładowanie...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <a href="index.html" class="btn-back">⬅ Powrót</a>
+
+  <script>
+    const SUPABASE_URL = "https://vwthvwqcqlsnikvqdeia.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dGh2d3FjcWxzbmlrdnFkZWlhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzczMDI2NCwiZXhwIjoyMDY5MzA2MjY0fQ.IRZwe-xSdLbOGPLTupsGubivGV6_-jRgw3C-9zPfpKA";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function ym(dt){ const y=dt.getFullYear(); const m=String(dt.getMonth()+1).padStart(2,"0"); return y+"-"+m; }
+
+    async function loadStats() {
+      const { data: treningi } = await supabase.from("treningi").select("*");
+      if (!treningi) return;
+
+      const selectM = document.getElementById("miesiac");
+      const wybrany = selectM ? selectM.value : "all";
+
+      const today = new Date().toISOString().split("T")[0];
+      const day = new Date().getDay(); 
+      const monday = new Date();
+      monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const mondayISO = monday.toISOString().split("T")[0];
+      const sundayISO = sunday.toISOString().split("T")[0];
+
+      let dataset = treningi;
+      if (wybrany !== "all") {
+        dataset = treningi.filter(t => t.data && t.data.split("-")[1] === wybrany);
+      }
+
+      // --- Łączny zarobek w miesiącu
+      const total = dataset.reduce((acc,t)=>{
+        const kwota = parseFloat(t.stawka)||0;
+        return acc + (t.zapisano ? kwota*0.7 : kwota);
+      },0);
+      document.getElementById("total-earnings").textContent = total.toFixed(2) + " zł";
+
+      // --- Dzisiejszy zarobek
+      const todaySum = dataset.filter(t=>t.data===today).reduce((acc,t)=>{
+        const kwota = parseFloat(t.stawka)||0;
+        return acc + (t.zapisano ? kwota*0.7 : kwota);
+      },0);
+      document.getElementById("today-earnings").textContent = todaySum.toFixed(2) + " zł";
+
+      // --- TOP 5 miesiąc
+      const countsM = {};
+      dataset.forEach(t => {
+        const name = t.zawodnik || "";
+        if (!name) return;
+        countsM[name] = (countsM[name] || 0) + 1;
+      });
+      const rankingM = Object.entries(countsM).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      const ctxMonth = document.getElementById("pieMonth");
+      if (ctxMonth) {
+        if (window.__pieMonth) window.__pieMonth.destroy();
+        window.__pieMonth = new Chart(ctxMonth, {
+          type: "doughnut",
+          data: {
+            labels: rankingM.map(r=>r[0]),
+            datasets: [{ data: rankingM.map(r=>r[1]) }]
+          },
+          options:{ responsive:true, plugins:{ legend:{ position:"bottom" } } }
+        });
+      }
+
+      // --- TOP 5 tydzień
+      const tygodniowe = dataset.filter(t => t.data >= mondayISO && t.data <= sundayISO);
+      const countsW = {};
+      tygodniowe.forEach(t => { countsW[t.zawodnik] = (countsW[t.zawodnik] || 0) + 1; });
+      const rankingW = Object.entries(countsW).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      const ctxWeek = document.getElementById("pieWeek");
+      if (ctxWeek) {
+        if (window.__pieWeek) window.__pieWeek.destroy();
+        window.__pieWeek = new Chart(ctxWeek, {
+          type: "doughnut",
+          data: {
+            labels: rankingW.map(r=>r[0]),
+            datasets: [{ data: rankingW.map(r=>r[1]) }]
+          },
+          options:{ responsive:true, plugins:{ legend:{ position:"bottom" } } }
+        });
+      }
+
+      // --- Najczęściej używane stawki
+      const countsStawki = {};
+      dataset.forEach(t => {
+        const st = parseFloat(t.stawka);
+        if (!st) return;
+        countsStawki[st] = (countsStawki[st]||0)+1;
+      });
+      const rankingStawki = Object.entries(countsStawki).sort((a,b)=>b[1]-a[1]);
+      const tbody = document.getElementById("stawki-tabela");
+      if (tbody) {
+        tbody.innerHTML = rankingStawki.map(([stawka,ilosc])=>`<tr><td>${stawka} zł</td><td>${ilosc}</td></tr>`).join("");
+      }
+
+      // --- porównanie m/m
+      (function(){
+        const miesiacSel = document.getElementById("miesiac");
+        const wybranyMiesiacVal = miesiacSel ? miesiacSel.value : "all";
+        const elPrev = document.getElementById("mom-prev");
+        const elCurr = document.getElementById("mom-curr");
+        const elChg  = document.getElementById("mom-change");
+
+        if (wybranyMiesiacVal === "all") {
+          if (elPrev) elPrev.textContent = "—";
+          if (elCurr) elCurr.textContent = "—";
+          if (elChg)  elChg.textContent  = "—";
+          return;
+        }
+        const dzienCutoff = new Date().getDate();
+        let pm = parseInt(wybranyMiesiacVal, 10) - 1;
+        if (pm === 0) pm = 12;
+        const prevMonth = String(pm).padStart(2, "0");
+
+        function sumDoDnia(mies) {
+          return (treningi || []).filter(t => {
+            if (!t.data || t.data.length < 10) return false;
+            const [y,m,d] = t.data.split("-");
+            return m === mies && parseInt(d,10) <= dzienCutoff;
+          }).reduce((acc,t)=>{
+            const kwota = parseFloat(t.stawka)||0;
+            return acc + (t.zapisano ? kwota*0.7 : kwota);
+          },0);
+        }
+
+        const sumaPrev = sumDoDnia(prevMonth);
+        const sumaCurr = sumDoDnia(wybranyMiesiacVal);
+
+        if (elPrev) elPrev.textContent = sumaPrev.toFixed(2) + " zł";
+        if (elCurr) elCurr.textContent = sumaCurr.toFixed(2) + " zł";
+
+        let zmianaTxt = "—";
+        if (sumaPrev > 0) {
+          const pct = ((sumaCurr - sumaPrev) / sumaPrev) * 100;
+          const sign = pct >= 0 ? "+" : "";
+          zmianaTxt = sign + pct.toFixed(1) + "%";
+        }
+        if (elChg) {
+          elChg.textContent = zmianaTxt;
+          elChg.style.color = (sumaCurr - sumaPrev) >= 0 ? "#2ecc71" : "#ff6b6b";
+        }
+      })();
+
+      // --- wykres słupkowy (kwoty miesięczne)
+      const now = new Date();
+      const labels = [];
+      for (let i=11; i>=0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+        labels.push(ym(d));
+      }
+      const sumsByMonth = Object.fromEntries(labels.map(l=>[l,0]));
+      treningi.forEach(t=>{
+        if (!t.data || t.data.length < 7) return;
+        const ymKey = t.data.substring(0,7);
+        if (ymKey in sumsByMonth) {
+          const kwota = parseFloat(t.stawka)||0;
+          sumsByMonth[ymKey] += (t.zapisano ? kwota*0.7 : kwota);
+        }
+      });
+      const values = labels.map(l=>sumsByMonth[l]);
+
+      const ctx = document.getElementById('barMonthly');
+      if (ctx) {
+        if (window.__barChart) window.__barChart.destroy();
+        window.__barChart = new Chart(ctx, {
+          type:'bar',
+          data:{ labels, datasets:[{ label:'Kwota (zł)', data: values }] },
+          options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{ legend:{ display:true }, tooltip:{ enabled:true } },
+            scales:{ x:{ grid:{ display:false } }, y:{ beginAtZero:true } }
+          }
+        });
+      }
+    }
+
+    (function init(){
+      const sel = document.getElementById('miesiac');
+      if (sel) {
+        const mm = new Date().toISOString().split('T')[0].split('-')[1];
+        sel.value = mm; 
+        sel.addEventListener('change', loadStats);
+      }
+      loadStats();
+    })();
+  </script>
+</body>
+</html>
