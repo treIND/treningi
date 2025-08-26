@@ -351,7 +351,71 @@
   .floating-link-players:hover { background: #1d4ed8; }
 </style>
 
-<a class="floating-link-players" href="players_admin (3).html" title="Lista zawodników">+</a>
+<a class="floating-link-players" href="zawodnicy.html" title="Lista zawodników">+</a>
+
+
+<!-- === GŁOS: dodawanie treningów (fuzzy) === -->
+<button id="voiceBtn" class="floating-btn" title="Dodaj głosowo">🎤</button>
+<script>
+  function levenshtein(a, b) {
+    const m = [];
+    for (let i = 0; i <= b.length; i++) m[i] = [i];
+    for (let j = 0; j <= a.length; j++) m[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        m[i][j] = b.charAt(i-1) === a.charAt(j-1)
+          ? m[i-1][j-1]
+          : Math.min(m[i-1][j-1]+1, m[i][j-1]+1, m[i-1][j]+1);
+      }
+    }
+    return m[b.length][a.length];
+  }
+  function findBestMatch(spokenName, players) {
+    let best = null, bestScore = Infinity;
+    const normalized = spokenName.toLowerCase().trim();
+    players.forEach(p => {
+      const nameNorm = (p.name || "").toLowerCase().trim();
+      const variants = [nameNorm, nameNorm.split(" ").reverse().join(" ")];
+      variants.forEach(v => {
+        const d = levenshtein(normalized, v);
+        if (d < bestScore) { bestScore = d; best = p; }
+      });
+    });
+    return bestScore <= 3 ? best : null;
+  }
+
+  let recognition;
+  const voiceBtn = document.getElementById("voiceBtn");
+  if ("webkitSpeechRecognition" in window) {
+    recognition = new webkitSpeechRecognition();
+    recognition.lang = "pl-PL";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = async (event) => {
+      const transcript = event.results[0][0].transcript.trim();
+      const m = transcript.match(/dodaj trening (.+) (\d+)/i);
+      if (!m) { alert("Powiedz: 'Dodaj trening Imię Nazwisko Kwota'"); return; }
+
+      const spokenName = m[1].trim();
+      const stawka = parseInt(m[2], 10);
+      const todayISO = new Date().toISOString().split("T")[0];
+
+      const { data: players, error } = await supabase.from("players").select("*");
+      if (error) { alert("Błąd pobierania listy zawodników: " + error.message); return; }
+
+      const found = findBestMatch(spokenName, players || []);
+      if (found) {
+        const { error: insErr } = await supabase.from("treningi").insert([{ zawodnik: found.name, data: todayISO, stawka }]);
+        if (!insErr && typeof odswiez === "function") { window.lastAddedId = Date.now(); await odswiez(); }
+        if (insErr) alert("Błąd dodawania treningu: " + insErr.message);
+      } else {
+        alert("Nie znaleziono zawodnika podobnego do: " + spokenName);
+      }
+    };
+  }
+  if (voiceBtn) voiceBtn.onclick = () => recognition ? recognition.start() : alert("Brak wsparcia rozpoznawania mowy");
+</script>
 
 </body>
 </html>
