@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>#treIND — Terminarz • PLAN i TRENINGI (auto‑kopiowanie z poprzedniego tygodnia)</title>
+  <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#0c0f17;
+      --panel:#0f172a;
+      --card:#0b1222;
+      --muted:#93a4c3;
+      --text:#e6eefc;
+      --border:#1f2b47;
+      --accent:#3DA4E0;
+      --ok:#0ea85e;
+      --ok-soft:#092e1f;
+      --info:#2563eb;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:'League Spartan', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      letter-spacing:.2px;
+    }
+    header{
+      padding: 1rem 1rem;
+      background: linear-gradient(180deg, #0b1327 0%, #0c1224 100%);
+      border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap;
+    }
+    header h1{margin:0; font-size:1.1rem; font-weight:700}
+    .tag{background:#132139;border:1px solid var(--border);color:#bfe2ff;padding:.2rem .55rem;border-radius:999px;font-weight:700;letter-spacing:.4px}
+    .week-nav{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+    .btn{
+      border:1px solid var(--border); background:#12203a; color:#d9ecff;
+      padding:.5rem .8rem; border-radius:12px; cursor:pointer; font-weight:700;
+    }
+    .btn.primary{ background:var(--accent); color:#021423; border-color:#1b8dc7 }
+    .btn.success{ background:var(--ok); color:#04160e; border-color:#0b8d52 }
+    .btn.info{ background:var(--info); color:#041021; border-color:#1d4ed8 }
+    .btn.ghost{ background:transparent }
+    .btn:active{ transform: translateY(1px) }
+    main{ padding: 1rem; max-width: 860px; margin: 0 auto; }
+    .grid{ display:flex; flex-direction:column; gap:1rem; }
+    .day-card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:18px; padding:1rem;
+      box-shadow: 0 8px 30px rgba(0,0,0,.35);
+    }
+    .day-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:.25rem; gap:.5rem; flex-wrap:wrap; }
+    .day-title{ font-size:1.05rem; font-weight:700 }
+    .day-date{ color:var(--muted); font-size:.95rem }
+    .block{
+      border:1px dashed var(--border);
+      border-radius:14px; padding:.75rem; margin-top:.75rem;
+      background:var(--card);
+      transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .block.active{
+      border-color: #0b7342;
+      background: var(--ok-soft);
+      box-shadow: 0 0 0 2px rgba(14,168,94,.25) inset;
+    }
+    .row{ display:flex; align-items:flex-start; gap:.75rem; flex-wrap:wrap }
+    .time{ flex:0 0 120px; display:flex; align-items:center; gap:.4rem }
+    input[type=time]{
+      padding:.55rem; border:1px solid var(--border); border-radius:10px; width:110px;
+      background:#0e1a32; color:#e6eefc;
+    }
+    .rate-wrap{ flex:0 0 140px; display:flex; align-items:center; gap:.4rem }
+    .rate-wrap label{ white-space:nowrap; color:var(--muted) }
+    .rate{ width:110px; padding:.55rem .7rem; border:1px solid var(--border); border-radius:10px; background:#0e1a32; color:#e6eefc; }
+    .players{ flex:1; display:flex; flex-direction:column; gap:.5rem; min-width:260px }
+    .slot{ display:block }
+    select{
+      width:100%; padding:.6rem .7rem; border:1px solid var(--border); border-radius:10px;
+      background:#0e1a32; color:#e6eefc;
+    }
+    .hint{ color:var(--muted); font-size:.85rem; margin:.35rem 0 0 }
+    .footer{
+      position: sticky; bottom: 0; background: rgba(15,23,42,.95);
+      border-top:1px solid var(--border);
+      padding:.6rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:.5rem;
+    }
+    .small{ font-size:.9rem; color:#9fb2d6 }
+    .week-range{ font-weight:700 }
+    .toast{ position:fixed; right:12px; bottom:12px; background:#10223a; color:#cfe9ff; border:1px solid #1e3a5f; padding:.7rem 1rem; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.35); display:none }
+    .toast.err{ border-color:#7f1d1d; color:#fecaca; }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display:flex;align-items:center;gap:.6rem;">
+      <span class="tag">#treIND</span>
+      <h1>Terminarz tygodniowy — PLAN i TRENINGI (autokopiowanie)</h1>
+    </div>
+    <div class="week-nav">
+      <button class="btn ghost" id="prevWeek">⟵ Poprzedni</button>
+      <div class="week-range" id="weekRange"></div>
+      <button class="btn ghost" id="nextWeek">Następny ⟶</button>
+      <button class="btn info" id="loadCloudBtn">Wczytaj z chmury (plan)</button>
+      <!-- NOWY: kopiowanie całego tygodnia -->
+      <button class="btn ghost" id="copyPrevWeek">Skopiuj tydzień z poprzedniego</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <div class="footer">
+    <div class="small" id="status">Gotowe.</div>
+    <div class="small">Wczytywanie z tabeli <b>treningi_plan</b> dla bieżącego tygodnia</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://vwthvwqcqlsnikvqdeia.supabase.co';
+    const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dGh2d3FjcWxzbmlrdnFkZWlhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzczMDI2NCwiZXhwIjoyMDY5MzA2MjY0fQ.IRZwe-xSdLbOGPLTupsGubivGV6_-jRgw3C-9zPfpKA';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    const DAYS = [
+      { key: 'mon', label: 'Poniedziałek', offset: 0 },
+      { key: 'tue', label: 'Wtorek',     offset: 1 },
+      { key: 'wed', label: 'Środa',      offset: 2 },
+      { key: 'thu', label: 'Czwartek',   offset: 3 },
+      { key: 'fri', label: 'Piątek',     offset: 4 },
+    ];
+    const BLOCKS_PER_DAY = 4;
+    const MAX_PLAYERS_PER_BLOCK = 4;
+    const STAWKI = [40,50,60,70,80,90,100,110];
+
+    let PLAYERS = [];
+    let currentMonday = getMonday(new Date());
+
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function getMonday(d){ const x=new Date(d); const dow=x.getDay(); const diff=(dow===0?-6:1-dow); x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x; }
+    function formatDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+    function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+    function weekKey(d){ const y=d.getFullYear(); const first=getMonday(new Date(y,0,4)); const days=Math.floor((d-first)/86400000); const ww=Math.floor(days/7)+1; return y+'-W'+pad(ww); }
+    function toPgTime(h){ return !h?null:(h.length===5?h+':00':h); }
+    function hhmmFromPg(t){ return !t? '' : t.slice(0,5); }
+
+    const $grid=document.getElementById('grid');
+    const $range=document.getElementById('weekRange');
+    const $status=document.getElementById('status');
+    const $toast=document.getElementById('toast');
+
+    function toast(msg,err=false){ $toast.textContent=msg; $toast.className=err?'toast err':'toast'; $toast.style.display='block'; setTimeout(()=>{$toast.style.display='none'},3000); }
+    function setStatus(m){ $status.textContent=m; }
+    function renderWeekHeader(){ const s=formatDate(currentMonday), e=formatDate(addDays(currentMonday,4)); $range.textContent=`${s} — ${e} (${weekKey(currentMonday)})`; }
+
+    function buildUI(){
+      $grid.innerHTML='';
+      DAYS.forEach(d=>{
+        const dayDate=addDays(currentMonday,d.offset);
+        const card=document.createElement('div'); card.className='day-card';
+        card.innerHTML=`
+          <div class="day-head">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <div class="day-title">${d.label}</div>
+              <div class="day-date">${formatDate(dayDate)}</div>
+            </div>
+            <div class="day-actions">
+              <button class="btn info" id="plan-${d.key}">Zaplanuj dzień → <b>treningi_plan</b></button>
+              <button class="btn success" id="push-${d.key}">Zapisz dzień → <b>treningi</b></button>
+              <button class="btn" id="copy-prev-${d.key}">Kopiuj z poprzedniego tyg.</button>
+            </div>
+          </div>
+        `;
+        for(let b=1;b<=BLOCKS_PER_DAY;b++){
+          const block=document.createElement('div'); block.className='block'; block.id=`block-${d.key}-${b}`;
+          const row=document.createElement('div'); row.className='row';
+
+          const timeWrap=document.createElement('div'); timeWrap.className='time';
+          const tl=document.createElement('label'); tl.textContent='Godzina';
+          const ti=document.createElement('input'); ti.type='time'; ti.id=`time-${d.key}-${b}`;
+          timeWrap.appendChild(tl); timeWrap.appendChild(ti);
+
+          const rateWrap=document.createElement('div'); rateWrap.className='rate-wrap';
+          const rl=document.createElement('label'); rl.textContent='Stawka';
+          const rs=document.createElement('select'); rs.className='rate'; rs.id=`rate-${d.key}-${b}`;
+          rs.innerHTML=STAWKI.map(s=>`<option value="${s}">${s}</option>`).join(''); rs.value=60;
+          rateWrap.appendChild(rl); rateWrap.appendChild(rs);
+
+          const playersWrap=document.createElement('div'); playersWrap.className='players';
+          for(let p=1;p<=MAX_PLAYERS_PER_BLOCK;p++){ const slot=document.createElement('div'); slot.className='slot';
+            const sel=document.createElement('select'); sel.id=`sel-${d.key}-${b}-${p}`; sel.innerHTML='<option value="">— brak —</option>';
+            sel.addEventListener('change',()=>updateBlockState(d.key,b));
+            slot.appendChild(sel); playersWrap.appendChild(slot);
+          }
+
+          row.appendChild(timeWrap); row.appendChild(rateWrap); row.appendChild(playersWrap);
+          block.appendChild(row);
+          const hint=document.createElement('div'); hint.className='hint'; hint.textContent='Jedna stawka dla całego bloku · max 4 zawodników';
+          block.appendChild(hint);
+          card.appendChild(block);
+        }
+        $grid.appendChild(card);
+      });
+      DAYS.forEach(d=>{
+        document.getElementById(`plan-${d.key}`).onclick=()=>planDay(d.key);
+        document.getElementById(`push-${d.key}`).onclick=()=>pushDayToTreningi(d.key);
+        document.getElementById(`copy-prev-${d.key}`).onclick=()=>copyDayFromPreviousWeek(d.key);
+      });
+    }
+
+    function populateSelects(){
+      const options=(PLAYERS||[]).map(p=>{
+        const label=p.name+(p.rocznik?` (${p.rocznik})`:'');
+        return `<option value="${encodeURIComponent(p.name)}">${label}</option>`;
+      }).join('');
+      document.querySelectorAll('select[id^="sel-"]').forEach(sel=>{
+        const cur=sel.value; sel.innerHTML='<option value="">— brak —</option>'+options; if(cur) sel.value=cur;
+      });
+    }
+
+    function updateBlockState(dayKey,blockNo){
+      const el=document.getElementById(`block-${dayKey}-${blockNo}`);
+      let any=false; for(let p=1;p<=MAX_PLAYERS_PER_BLOCK;p++){ const s=document.getElementById(`sel-${dayKey}-${blockNo}-${p}`); if(s&&s.value){ any=true; break; } }
+      if(any) el.classList.add('active'); else el.classList.remove('active');
+    }
+
+        function collectWeekData(){
+      const data={ monday:formatDate(currentMonday), days:{} };
+      DAYS.forEach(d=>{ data.days[d.key]={}; for(let b=1;b<=BLOCKS_PER_DAY;b++){
+        const time=document.getElementById(`time-${d.key}-${b}`).value||'';
+        const rate=Number(document.getElementById(`rate-${d.key}-${b}`).value||60);
+        const players=[]; for(let p=1;p<=MAX_PLAYERS_PER_BLOCK;p++){ const val=document.getElementById(`sel-${d.key}-${b}-${p}`).value||''; players.push(decodeURIComponent(val||'')); }
+        data.days[d.key][b]={ time, rate, players };
+      }}); return data;
+    }
+    function applyWeekData(data){
+      if(!data) return;
+      DAYS.forEach(d=>{ for(let b=1;b<=BLOCKS_PER_DAY;b++){
+        const blk=data.days?.[d.key]?.[b]; if(!blk) continue;
+        const ti=document.getElementById(`time-${d.key}-${b}`), rs=document.getElementById(`rate-${d.key}-${b}`);
+        if(ti) ti.value=blk.time||''; if(rs) rs.value=Number(blk.rate??60);
+        for(let p=1;p<=MAX_PLAYERS_PER_BLOCK;p++){ const sel=document.getElementById(`sel-${d.key}-${b}-${p}`); const name=blk.players?.[p-1]||''; if(sel) sel.value=name?encodeURIComponent(name):''; }
+        updateBlockState(d.key,b);
+      }});
+    }
+        
+    function buildEntriesForDay(dayKey){
+      const day=DAYS.find(x=>x.key===dayKey);
+      const dateStr=formatDate(addDays(currentMonday,day.offset));
+      const miesiac=dateStr.slice(0,7);
+      const entries=[];
+      for(let b=1;b<=BLOCKS_PER_DAY;b++){
+        const godzina=toPgTime(document.getElementById(`time-${dayKey}-${b}`).value||'');
+        const rate=Number(document.getElementById(`rate-${dayKey}-${b}`).value||60);
+        for(let p=1;p<=MAX_PLAYERS_PER_BLOCK;p++){
+          const sval=document.getElementById(`sel-${dayKey}-${b}-${p}`).value;
+          if(sval){
+            entries.push({ zawodnik: decodeURIComponent(sval), data: dateStr, time: godzina, stawka: rate, miesiac });
+          }
+        }
+      }
+      return entries;
+    }
+
+    async function planDay(dayKey){
+      const rows=buildEntriesForDay(dayKey);
+      if(rows.length===0){ toast('Brak zawodników w tym dniu.'); return; }
+      const rowsWithSource = rows.map(r => ({...r, source:'terminarz'}));
+
+      const dateStr=rows[0].data;
+      const { data:existing, error:e1 } = await supabase.from('treningi_plan').select('zawodnik, data, time').eq('data', dateStr);
+      if(e1){ toast('Błąd odczytu planów: '+e1.message,true); return; }
+      const seen=new Set((existing||[]).map(r=>`${r.zawodnik}|${r.data}|${r.time||''}`));
+      const toInsert=rowsWithSource.filter(r=>!seen.has(`${r.zawodnik}|${r.data}|${r.time||''}`));
+      if(toInsert.length===0){ toast('Plany: wszystkie wpisy już istnieją.'); return; }
+      const { error:e2 } = await supabase.from('treningi_plan').insert(toInsert);
+      if(e2){ toast('Błąd zapisu planów: '+e2.message,true); return; }
+      toast(`Zaplano­wano: ${toInsert.length} rekordów → treningi_plan ✔`);
+    }
+
+    async function pushDayToTreningi(dayKey){
+      const rows=buildEntriesForDay(dayKey);
+      if(rows.length===0){ toast('Brak zawodników w tym dniu.'); return; }
+      const dateStr=rows[0].data;
+      const { data:existing, error:e1 } = await supabase.from('treningi').select('zawodnik, data, time').eq('data', dateStr);
+      if(e1){ toast('Błąd odczytu treningów: '+e1.message,true); return; }
+      const seen=new Set((existing||[]).map(r=>`${r.zawodnik}|${r.data}|${r.time||''}`));
+      const toInsert=rows.filter(r=>!seen.has(`${r.zawodnik}|${r.data}|${r.time||''}`));
+      if(toInsert.length===0){ toast('Treningi: wszystkie wpisy już istnieją.'); return; }
+      const { error:e2 } = await supabase.from('treningi').insert(toInsert);
+      if(e2){ toast('Błąd zapisu treningów: '+e2.message,true); return; }
+      toast(`Zapisano: ${toInsert.length} rekordów → treningi ✔`);
+    }
+
+    // ====== WCZYTYWANIE PLANU Z SUPABASE ======
+    async function loadPlanFromCloud(){
+      const start=formatDate(currentMonday);
+      const end=formatDate(addDays(currentMonday,4));
+
+      const { data:rows, error } = await supabase
+        .from('treningi_plan')
+        .select('zawodnik, data, time, stawka')
+        .gte('data', start)
+        .lte('data', end)
+        .order('data', { ascending:true })
+        .order('time', { ascending:true });
+
+      if(error){ toast('Błąd wczytywania planu: '+error.message, true); return; }
+      if(!rows || rows.length===0){ toast('Brak zapisanych planów w chmurze dla tego tygodnia.'); return; }
+
+      // wyczyść UI (ale nie przebudowuj)
+      DAYS.forEach(d=>{
+        for(let b=1;b<=BLOCKS_PER_DAY;b++){
+          document.getElementById(`time-${d.key}-${b}`).value='';
+          document.getElementById(`rate-${d.key}-${b}`).value=60;
+          for(let p=1;p<=MAX_PLAYERS_PER_BLOCK;p++){
+            const sel=document.getElementById(`sel-${d.key}-${b}-${p}`);
+            if(sel) sel.value='';
+          }
+          updateBlockState(d.key,b);
+        }
+      });
+
+      // grupuj wg dnia i czasu
+      const byDay = {};
+      rows.forEach(r=>{ (byDay[r.data] ||= []).push(r); });
+
+      DAYS.forEach(d=>{
+        const dateStr=formatDate(addDays(currentMonday, d.offset));
+        const items = byDay[dateStr] || [];
+        const groups = {};
+        items.forEach(it=>{ const key = it.time || 'NO_TIME'; (groups[key] ||= []).push(it); });
+        const times = Object.keys(groups);
+        let blockIndex = 1;
+        times.forEach(tk=>{
+          const group = groups[tk];
+          const hhmm = tk==='NO_TIME' ? '' : (group[0].time ? group[0].time.slice(0,5) : '');
+          const stawki = group.map(g=> Number(g.stawka||60));
+          const chosen = stawki.sort((a,b)=>stawki.filter(v=>v===b).length - stawki.filter(v=>v===a).length)[0] || 60;
+
+          let i = 0;
+          while(i < group.length && blockIndex <= BLOCKS_PER_DAY){
+            const chunk = group.slice(i, i+MAX_PLAYERS_PER_BLOCK);
+            const timeInput = document.getElementById(`time-${d.key}-${blockIndex}`);
+            const rateSel   = document.getElementById(`rate-${d.key}-${blockIndex}`);
+            if(timeInput) timeInput.value = hhmm;
+            if(rateSel)   rateSel.value   = chosen;
+
+            chunk.forEach((row, idx)=>{
+              const sel = document.getElementById(`sel-${d.key}-${blockIndex}-${idx+1}`);
+              if(sel) sel.value = row.zawodnik ? encodeURIComponent(row.zawodnik) : '';
+            });
+            updateBlockState(d.key, blockIndex);
+
+            i += MAX_PLAYERS_PER_BLOCK;
+            blockIndex++;
+          }
+        });
+      });
+
+      toast(`Wczytano plan z chmury: ${rows.length} wpisów ✔`);
+    }
+
+    // ====== AUTOKOPIOWANIE Z POPRZEDNIEGO TYGODNIA ======
+    function clearDayUI(dayKey){
+      for(let b=1;b<=BLOCKS_PER_DAY;b++){
+        const t = document.getElementById(`time-${dayKey}-${b}`);
+        const r = document.getElementById(`rate-${dayKey}-${b}`);
+        if(t) t.value = '';
+        if(r) r.value = 60;
+        for(let p=1;p<=MAX_PLAYERS_PER_BLOCK;p++){
+          const sel = document.getElementById(`sel-${dayKey}-${b}-${p}`);
+          if(sel) sel.value = '';
+        }
+        updateBlockState(dayKey, b);
+      }
+    }
+
+    function applyDayDataFromObject(dayKey, dayObj){
+      clearDayUI(dayKey);
+      if(!dayObj) return;
+      for(let b=1;b<=BLOCKS_PER_DAY;b++){
+        const blk = dayObj[b];
+        if(!blk) continue;
+        const ti = document.getElementById(`time-${dayKey}-${b}`);
+        const rs = document.getElementById(`rate-${dayKey}-${b}`);
+        if(ti) ti.value = blk.time || '';
+        if(rs) rs.value = Number(blk.rate ?? 60);
+        (blk.players || []).forEach((name, idx)=>{
+          const sel = document.getElementById(`sel-${dayKey}-${b}-${idx+1}`);
+          if(sel) sel.value = name ? encodeURIComponent(name) : '';
+        });
+        updateBlockState(dayKey, b);
+      }
+    }
+
+    async function copyDayFromPreviousWeek(dayKey){
+  const prevMonday = addDays(currentMonday, -7);
+const day = DAYS.find(x => x.key === dayKey);
+      const prevDateStr = formatDate(addDays(prevMonday, day.offset));
+
+      const { data: rows, error } = await supabase
+        .from('treningi_plan')
+        .select('zawodnik, time, stawka')
+        .eq('data', prevDateStr)
+        .order('time', { ascending: true });
+
+      if(error){ toast('Błąd kopiowania z chmury: ' + error.message, true); return; }
+      if(!rows || rows.length === 0){ toast('Brak danych w chmurze dla poprzedniego tygodnia w tym dniu.'); return; }
+
+      clearDayUI(dayKey);
+      const groups = {};
+      rows.forEach(r=>{ const k = r.time || 'NO_TIME'; (groups[k] ||= []).push(r); });
+
+      let blockIndex = 1;
+      for(const tk of Object.keys(groups)){
+        const group = groups[tk];
+        const hhmm = tk==='NO_TIME' ? '' : (group[0].time ? group[0].time.slice(0,5) : '');
+        const stawki = group.map(g => Number(g.stawka || 60));
+        const chosen = stawki.sort((a,b)=> stawki.filter(v=>v===b).length - stawki.filter(v=>v===a).length)[0] || 60;
+
+        let i = 0;
+        while(i < group.length && blockIndex <= BLOCKS_PER_DAY){
+          const chunk = group.slice(i, i + MAX_PLAYERS_PER_BLOCK);
+
+          const timeInput = document.getElementById(`time-${dayKey}-${blockIndex}`);
+          const rateSel   = document.getElementById(`rate-${dayKey}-${blockIndex}`);
+          if(timeInput) timeInput.value = hhmm;
+          if(rateSel)   rateSel.value   = chosen;
+
+          chunk.forEach((row, idx)=>{
+            const sel = document.getElementById(`sel-${dayKey}-${blockIndex}-${idx+1}`);
+            if(sel) sel.value = row.zawodnik ? encodeURIComponent(row.zawodnik) : '';
+          });
+
+          updateBlockState(dayKey, blockIndex);
+          i += MAX_PLAYERS_PER_BLOCK;
+          blockIndex++;
+        }
+        if(blockIndex > BLOCKS_PER_DAY) break;
+      }
+
+      toast('Skopiowano z poprzedniego tygodnia (chmura) ✔');
+    }
+
+    async function copyWeekFromPrevious(){
+      for(const d of DAYS){
+        // sekwencyjnie, żeby nie zapchać UI
+        // eslint-disable-next-line no-await-in-loop
+        await copyDayFromPreviousWeek(d.key);
+      }
+      toast('Tydzień skopiowany z poprzedniego ✔');
+    }
+
+    async function maybeAutoCopyFromPreviousIfEmpty(){
+      // Czy UI jest puste?
+      const data = collectWeekData();
+      const any = Object.values(data.days).some(dayObj =>
+        Object.values(dayObj).some(blk => (blk.players || []).some(n => n))
+      );
+      if(any) return; // coś już jest – nie nadpisuj
+
+      // Czy w chmurze istnieje plan na ten tydzień?
+      const start = formatDate(currentMonday);
+      const end   = formatDate(addDays(currentMonday,4));
+      const { data:rows, error } = await supabase
+        .from('treningi_plan')
+        .select('data')
+        .gte('data', start).lte('data', end).limit(1);
+
+      if(error) { console.warn(error); return; }
+      if(rows && rows.length>0) return; // jest plan – nie kopiuj
+
+      // Autokopia z poprzedniego tygodnia
+      await copyWeekFromPrevious();
+    }
+
+    async function goWeek(delta){
+      currentMonday=addDays(currentMonday, delta*7);
+      renderWeekHeader(); buildUI(); populateSelects();
+      await loadPlanFromCloud();
+      await maybeAutoCopyFromPreviousIfEmpty();
+    }
+
+    (async function init(){
+      renderWeekHeader(); setStatus('Ładuję zawodników…');
+      const { data:players, error } = await supabase.from('players').select('id, name, rocznik').order('name');
+      if(error) setStatus('Błąd Supabase: '+error.message);
+      PLAYERS=players||[]; buildUI(); populateSelects();
+      const existing=loadWeekLocal(currentMonday);
+      if(existing) applyWeekData(existing);
+      else { await loadPlanFromCloud(); await maybeAutoCopyFromPreviousIfEmpty(); }
+      setStatus('Gotowe.');
+    })();
+
+    document.getElementById('prevWeek').onclick=()=>goWeek(-1);
+    document.getElementById('nextWeek').onclick=()=>goWeek(1);
+    document.getElementById('loadCloudBtn').onclick=loadPlanFromCloud;
+    document.getElementById('copyPrevWeek').onclick=()=>copyWeekFromPrevious();
+  </script>
+</body>
+</html>
