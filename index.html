@@ -115,6 +115,28 @@
   <option value="12">Grudzień</option>
 </select>
 
+
+<!-- BLOK 4-OSOBOWY -->
+<hr style="margin: 2rem 0; border-color:#333"/>
+<h2>Dodaj blok 4‑osobowy</h2>
+<div class="form-inline">
+  <label for="zawodnicy4" style="margin-right:4px;">Zawodnicy (max 4):</label>
+  <select id="zawodnicy4" multiple style="min-width: 340px; max-width: 520px;"></select>
+
+  <label for="godzina" style="margin-left:8px;">Godzina:</label>
+  <input id="godzina" type="time" style="width:130px"/>
+
+  <label for="stawka4" style="margin-left:8px;">Cena jednostkowa:</label>
+  <input id="stawka4" type="number" step="1" min="0" value="60" style="width:120px"/> zł
+
+  <label style="display:flex;align-items:center;gap:.4rem;margin-left:8px;">
+    <input id="wyslijCalyBlok" type="checkbox"/> Wyślij cały blok do Google Sheets
+  </label>
+
+  <button id="dodajBlok4Btn" type="button">Dodaj blok 4</button>
+</div>
+<p style="opacity:.8">Przy dodaniu bloku powstają <strong>osobne wpisy</strong> w bazie (po 1 na zawodnika), a opcjonalnie do arkusza leci <strong>1 wiersz</strong>: data, godzina, 4× nazwisko, ilość, cena jednostkowa.</p>
+
 <table id="tabela">
   <thead>
     <tr><th>Zawodnik</th><th>Data</th><th>Stawka</th><th>Akcja</th></tr>
@@ -135,6 +157,100 @@
   const SUPABASE_URL = "https://vwthvwqcqlsnikvqdeia.supabase.co";
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dGh2d3FjcWxzbmlrdnFkZWlhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzczMDI2NCwiZXhwIjoyMDY5MzA2MjY0fQ.IRZwe-xSdLbOGPLTupsGubivGV6_-jRgw3C-9zPfpKA";
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ====== BLOK 4-OSOBOWY ======
+  const SHEET_GROUP_URL = "https://sheetdb.io/api/v1/m6deo8va8c79n"; // zmień jeśli masz osobny endpoint
+  let zawodnicy4Select;
+
+  function initZawodnicy4(players) {
+    const sel = document.getElementById("zawodnicy4");
+    if (!sel) return;
+    sel.innerHTML = "";
+    (players || []).forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.name;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+    try {
+      if (zawodnicy4Select) zawodnicy4Select.destroy();
+      zawodnicy4Select = new TomSelect("#zawodnicy4", {
+        maxItems: 4,
+        persist: false,
+        create: false,
+        placeholder: "Wybierz do 4 zawodników"
+      });
+    } catch(e) { console.warn("TomSelect init failed, fallback to native select.", e); }
+  }
+
+  async function zapiszBlokDoArkusza(names, dateISO, timeHHMM, unitPrice) {
+    // Układ zgodnie z Twoim screenem:
+    // data | godzina | imię i nazwisko zawodnika | ... 2 | ... 3 | ... 4 | ilość zawodników | cena jednostkowa
+    const [n1, n2, n3, n4] = [names[0]||"", names[1]||"", names[2]||"", names[3]||""];
+    const payload = {
+      data: [{
+        "data": dateISO,
+        "godzina": timeHHMM,
+        "imię i nazwisko zawodnika": n1,
+        "imię i nazwisko zawodnika 2": n2,
+        "imię i nazwisko zawodnika 3": n3,
+        "imię i nazwisko zawodnika 4": n4,
+        "ilość zawodników": String(names.length),
+        "cena jednostkowa": String(unitPrice)
+      }]
+    };
+    const res = await fetch(SHEET_GROUP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    return res.ok;
+  }
+
+  async function dodajBlok4() {
+    const picks = (zawodnicy4Select ? zawodnicy4Select.getValue() : []);
+    const names = Array.isArray(picks) ? picks : (picks ? [picks] : []);
+    const dateISO = document.getElementById("data").value;
+    const timeHHMM = document.getElementById("godzina").value || "00:00";
+    const unitPrice = parseFloat(document.getElementById("stawka4").value || "0");
+    const sendWhole = document.getElementById("wyslijCalyBlok")?.checked;
+
+    if (names.length === 0) { alert("Wybierz przynajmniej jednego zawodnika (max 4)."); return; }
+    if (!dateISO) { alert("Wybierz datę."); return; }
+    if (isNaN(unitPrice) || unitPrice <= 0) { alert("Podaj poprawną cenę jednostkową."); return; }
+
+    // 1) do bazy (po 1 wpisie na zawodnika)
+    const rows = names.map(n => ({ zawodnik: n, data: dateISO, stawka: unitPrice }));
+    const { error: errIns } = await supabase.from("treningi").insert(rows);
+    if (errIns) { alert("Błąd dodawania do bazy: " + errIns.message); return; }
+
+    // 2) opcjonalnie 1 wiersz do arkusza (+ oznacz jako zapisane)
+    if (sendWhole) {
+      const ok = await zapiszBlokDoArkusza(names, dateISO, timeHHMM, unitPrice);
+      if (!ok) {
+        alert("Nie udało się zapisać wiersza grupowego do arkusza.");
+      } else {
+        // 🔹 Po sukcesie arkusza: oznacz w bazie, że zapisano
+        await supabase
+          .from("treningi")
+          .update({ zapisano: true })
+          .in("zawodnik", names)
+          .eq("data", dateISO)
+          .eq("stawka", unitPrice);
+      }
+    }
+
+    if (typeof odswiez === "function") { await odswiez(); }
+    alert("Dodano blok 4‑osobowy." + (sendWhole ? " (wysłano też cały blok do Google Sheets)" : ""));
+  }
+
+  // podpięcie przycisku
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "dodajBlok4Btn") {
+      dodajBlok4();
+    }
+  });
+
 
   const tabela = document.querySelector("#tabela tbody");
   const zawodnikSelect = document.getElementById("zawodnik");
@@ -191,6 +307,7 @@
 
   async function odswiez() {
     const { data: players = [] } = await supabase.from("players").select("*").order("name", { ascending: true });
+    initZawodnicy4(players || []);
     const { data: treningi = [] } = await supabase.from("treningi").select("*");
     const { data: oplacenia = [] } = await supabase.from("oplacenia").select("*");
 
@@ -280,14 +397,14 @@
     document.getElementById("suma70").innerText = (suma*0.7).toFixed(2);
     document.getElementById("suma30").innerText = (suma*0.3).toFixed(2);
 
-    // Dzisiejszy zarobek
+    // Dzisiejszy zarobek (Zawsze 70%)
     (function() {
       const today = new Date().toISOString().split("T")[0];
-      const dzisiejsze = (filtrowaneTreningi || []).filter(t => t.data === today);
+      const dzisiejsze = (treningi || []).filter(t => t.data === today);
       let zarobekDzis = 0;
       dzisiejsze.forEach(t => {
         const stawka = parseFloat(t.stawka) || 0;
-        zarobekDzis += t.zapisano ? (stawka * 0.7) : stawka;
+        zarobekDzis += stawka * 0.7; // 👈 zawsze 70%
       });
       const dzElem = document.getElementById("dzisiaj-zarobek");
       if (dzElem) dzElem.innerText = zarobekDzis.toFixed(2);
