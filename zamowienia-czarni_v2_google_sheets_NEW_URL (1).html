@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sklep — Czarni Pruszcz (Koszulka)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --navy:#0b1220; --navy-2:#111b2e; --blue:#2aa7ff; --white:#fff; --muted:#a7b1c5;
+      --radius:16px; --gap:18px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,var(--navy),var(--navy-2));color:var(--white);
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+    a{color:inherit;text-decoration:none}
+    .container{width:min(1100px,100%);padding:0 20px;margin:0 auto}
+    header{position:sticky;top:0;z-index:40;background:rgba(11,18,32,.7);backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid rgba(255,255,255,.06)}
+    .nav{display:flex;align-items:center;gap:14px;padding:12px 0}
+    .brand{font-family:'Bebas Neue',Inter;font-size:28px;letter-spacing:.5px;display:flex;align-items:center;gap:10px}
+    .brand img{height:36px}
+    main{padding:28px 0 56px}
+    .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;align-items:start}
+    @media (max-width: 950px){ .grid{grid-template-columns:1fr; } }
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);overflow:hidden}
+    .card .body{padding:18px}
+    .media{display:grid;gap:10px;padding:10px}
+    .media img{width:100%;height:auto;border-radius:14px;background:#000}
+    h1{font-family:'Bebas Neue',Inter;margin:0 0 8px;font-size:44px;letter-spacing:.6px}
+    .price{font-size:28px;font-weight:800}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .pill{border:1px solid rgba(255,255,255,.35);padding:10px 14px;border-radius:12px;cursor:pointer;min-width:56px;text-align:center}
+    .pill[disabled]{opacity:.5;cursor:not-allowed}
+    .pill.active{border-color:var(--blue);box-shadow:0 0 0 3px rgba(42,167,255,.25);}
+    .qty{display:flex;align-items:center;gap:8px}
+    .qty button{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--white);font-size:18px}
+    .qty input{width:64px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--white);text-align:center;font-weight:700}
+    .btn{display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border-radius:12px;font-weight:700;border:1px solid rgba(255,255,255,.18);cursor:pointer}
+    .btn.primary{background:var(--blue);color:#001021;border:0}
+    .section{margin-top:18px}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width: 700px){ .two-col{grid-template-columns:1fr} }
+    input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#fff}
+    input::placeholder{color:#93a0b7}
+    .summary{display:flex;justify-content:space-between;align-items:center;padding:14px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}
+    small.code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace;color:#9fc9ff}
+    .bad{color:#ff9b9b}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <div class="brand"><img src="czarni.png" alt="Czarni"><span>PROJEKT&nbsp;SPORT</span></div>
+      <div class="spacer" style="flex:1"></div>
+      <a class="btn" href="index.html">Powrót</a>
+    </div>
+  </header>
+  <main class="container">
+    <div class="grid">
+      <!-- Galeria produktu -->
+      <article class="card">
+        <div class="media">
+          <img src="PRODUKTY PROJEKT SPORT.png" alt="Koszulka Czarni Pruszcz — przód/tył">
+        </div>
+      </article>
+
+      <!-- Panel zamówienia -->
+      <article class="card">
+        <div class="body">
+          <h1>Koszulka Akademia Czarni Pruszcz</h1>
+          <div class="muted">Kolor: <strong>czarny</strong> • Produkt klubowy</div>
+          <div class="price section" id="price" data-unit="89.00">89,00 zł</div>
+
+          <!-- Rozmiar -->
+          <div class="section">
+            <div class="muted" style="margin-bottom:8px">Rozmiar</div>
+            <div class="row" id="size-picker">
+              <button type="button" class="pill">122</button>
+              <button type="button" class="pill">134</button>
+              <button type="button" class="pill">146</button>
+              <button type="button" class="pill">158</button>
+              <button type="button" class="pill">S</button>
+              <button type="button" class="pill">M</button>
+              <button type="button" class="pill">L</button>
+              <button type="button" class="pill">XL</button>
+            </div>
+            <div id="size-error" class="muted bad" style="display:none;margin-top:6px">Wybierz rozmiar.</div>
+          </div>
+
+          <!-- Ilość -->
+          <div class="section">
+            <div class="muted" style="margin-bottom:8px">Ilość</div>
+            <div class="qty">
+              <button type="button" id="minus">−</button>
+              <input id="qty" type="number" min="1" value="1" />
+              <button type="button" id="plus">+</button>
+            </div>
+          </div>
+
+          <!-- Dane kupującego -->
+          <div class="section">
+            <div class="muted" style="margin-bottom:8px">Dane kupującego</div>
+            <div class="two-col">
+              <input id="buyer_name" placeholder="Imię i nazwisko" required />
+              <input id="buyer_email" placeholder="E‑mail" required type="email" />
+            </div>
+          </div>
+
+          <!-- Dostawa / Płatność -->
+          <div class="section">
+            <div class="muted" style="margin-bottom:8px">Dostawa i płatność</div>
+            <div class="two-col">
+              <input id="inpost_point" placeholder="Paczkomat InPost (np. GDA01A)" />
+              <select id="payment">
+                <option selected>Przelewy24</option>
+              </select>
+            </div>
+            <small class="muted">* Docelowo tutaj pojawi się wybór paczkomatu z mapy i przekierowanie do Przelewy24.</small>
+          </div>
+
+          <!-- Podsumowanie -->
+          <div class="section summary">
+            <div>
+              <div class="muted">Razem</div>
+              <div id="total" style="font-weight:800;font-size:20px">89,00 zł</div>
+            </div>
+            <button class="btn primary" id="order">Zamów teraz</button>
+          </div>
+
+          <div class="section">
+            <small class="code" id="payloadPreview">// Tutaj zobaczysz payload zamówienia gotowy do wysłania na backend…</small>
+          </div>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <script>
+    // --- UI helpers ---
+    const fmt = (n) => new Intl.NumberFormat('pl-PL', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n);
+    const unit = parseFloat(document.getElementById('price').dataset.unit);
+    const qtyEl = document.getElementById('qty');
+    const totalEl = document.getElementById('total');
+    const preview = document.getElementById('payloadPreview');
+    const sizePicker = document.getElementById('size-picker');
+    const sizeErr = document.getElementById('size-error');
+    let size = null;
+
+    function updateTotal(){
+      const q = Math.max(1, parseInt(qtyEl.value||'1', 10));
+      qtyEl.value = q;
+      totalEl.textContent = fmt(unit * q) + ' zł';
+      renderPayload();
+    }
+    document.getElementById('minus').onclick = () => { qtyEl.value = Math.max(1, (+qtyEl.value||1) - 1); updateTotal(); };
+    document.getElementById('plus').onclick  = () => { qtyEl.value = (+qtyEl.value||1) + 1; updateTotal(); };
+    qtyEl.oninput = updateTotal;
+
+    // Size selection
+    sizePicker.querySelectorAll('.pill').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        sizePicker.querySelectorAll('.pill').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        size = btn.textContent.trim();
+        sizeErr.style.display = 'none';
+        renderPayload();
+      });
+    });
+
+    // Build order payload (ready for backend/Przelewy24)
+    function buildPayload(){
+      return {
+        shop: "Czarni Pruszcz",
+        product: {
+          id: "czarni-koszulka-001",
+          name: "Koszulka Akademia Czarni Pruszcz",
+          color: "czarny",
+          size: size,
+          unit_price: unit,
+          quantity: parseInt(qtyEl.value, 10)
+        },
+        buyer: {
+          name: document.getElementById('buyer_name').value.trim(),
+          email: document.getElementById('buyer_email').value.trim()
+        },
+        delivery: {
+          method: "InPost Paczkomat",
+          point: document.getElementById('inpost_point').value.trim()
+        },
+        payment: {
+          provider: "Przelewy24",
+          method: "redirect"
+        },
+        totals: {
+          currency: "PLN",
+          gross: unit * Math.max(1, parseInt(qtyEl.value||'1',10))
+        }
+      };
+    }
+
+    function renderPayload(){
+      const payload = buildPayload();
+      preview.textContent = JSON.stringify(payload, null, 2);
+    }
+    renderPayload();
+
+    // "Order" button: validate + (placeholder) call
+    document.getElementById('order').addEventListener('click', ()=>{
+      const buyerOk = document.getElementById('buyer_name').value && document.getElementById('buyer_email').value;
+      const hasSize = !!size;
+      if(!hasSize){ sizeErr.style.display = 'block'; window.scrollTo({top:0, behavior:'smooth'}); return; }
+      if(!buyerOk){ alert('Podaj imię, nazwisko i e‑mail.'); return; }
+
+      const payload = buildPayload();
+
+      // TODO: Wyślij na backend (przykład):
+
+      // >>> GOOGLE SHEETS INTEGRACJA <<<<
+      const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxf79MRHc6nsBSFIbtLTPt9D7jdV-rZkSzpNft0AH0qJcUHyW2BZr_9HD6BsDY_VzZg/exec';
+      const TOKEN = 'czarni123';
+
+      (async () => {
+        try {
+          const res = await fetch(`${WEBAPP_URL}?token=${encodeURIComponent(TOKEN)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (data.ok) {
+            console.log('ORDER_SAVED', data);
+            alert('Zamówienie zapisane w Google Sheets. Numer: ' + data.orderId);
+            // TODO (później): tu zrobisz przekierowanie do Przelewy24
+          } else {
+            alert('Błąd zapisu: ' + (data.error || 'unknown'));
+          }
+        } catch (e) {
+          console.error(e);
+          alert('Błąd połączenia z arkuszem: ' + e.message);
+        }
+      })();
+      // >>> KONIEC INTEGRACJI <<<<
+
+    });
+  </script>
+</body>
+</html>
+  </script>
+</body>
+</html>
